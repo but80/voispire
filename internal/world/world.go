@@ -11,6 +11,10 @@ import (
 	"math"
 )
 
+const (
+	useStoneMask = false
+)
+
 func Harvest(x []float64, fs int, framePeriod float64) []float64 {
 	n := len(x)
 	m := n / int(math.Floor(float64(fs)*framePeriod))
@@ -29,7 +33,9 @@ func Harvest(x []float64, fs int, framePeriod float64) []float64 {
 		(*C.double)(&tmppos[0]),
 		(*C.double)(&f0[0]),
 	)
-	//
+	if !useStoneMask {
+		return f0
+	}
 	f0r := make([]float64, m)
 	C.StoneMask(
 		(*C.double)(&x[0]),
