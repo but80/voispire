@@ -2,10 +2,12 @@ package main
 
 import (
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/but80/voispire"
 	"github.com/comail/colog"
+	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	// Go >= 1.10 required
 	_ "github.com/theckman/goconstraint/go1.10/gte"
@@ -31,7 +33,7 @@ func main() {
 		},
 	}
 	app.HelpName = "voispire"
-	app.UsageText = "voispire [オプション...] <入力音声ファイル> <出力音声ファイル保存先>"
+	app.UsageText = "voispire [オプション...] <ピッチシフト量[半音]> <入力音声ファイル> <出力音声ファイル保存先>"
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
 			Name:  "verbose, v",
@@ -53,7 +55,7 @@ func main() {
 			cli.ShowVersion(ctx)
 			return nil
 		}
-		if ctx.NArg() < 2 {
+		if ctx.NArg() < 3 {
 			cli.ShowAppHelpAndExit(ctx, 1)
 		}
 
@@ -65,8 +67,15 @@ func main() {
 			colog.SetMinLevel(colog.LWarning)
 		}
 
-		if err := voispire.Demo(ctx.Args()[0], ctx.Args()[1]); err != nil {
-			panic(err)
+		transpose, err := strconv.Atoi(ctx.Args()[0])
+		if err != nil || transpose < -24 || 24 < transpose {
+			err := errors.New("ピッチシフト量は -24..24 の整数である必要があります")
+			return cli.NewExitError(err, 1)
+		}
+		infile := ctx.Args()[1]
+		outfile := ctx.Args()[2]
+		if err := voispire.Demo(transpose, infile, outfile); err != nil {
+			return cli.NewExitError(err, 1)
 		}
 		return nil
 	}

@@ -120,7 +120,7 @@ func (shifter *Shifter) Play(pitchCoef, speedCoef float64) []float64 {
 	return result
 }
 
-func Demo(infile, outfile string) error {
+func Demo(transpose int, infile, outfile string) error {
 	src, fs, err := loadWav(infile)
 	if err != nil {
 		return errors.Wrap(err, "音声ファイルの読み込みに失敗しました")
@@ -155,7 +155,8 @@ func Demo(infile, outfile string) error {
 	}
 
 	log.Print("info: 変換中...")
-	out := sh.Play(1.3, 1.0)
+	pitchCoef := math.Pow(2.0, float64(transpose)/12.0)
+	out := sh.Play(pitchCoef, 1.0)
 
 	log.Print("info: 保存中...")
 	saveWav(outfile, fs, out)
