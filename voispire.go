@@ -13,6 +13,7 @@ const (
 	minFreq     = 1.0
 )
 
+// Demo は、デモ実装です。
 func Demo(transpose int, infile, outfile string) error {
 	src, fs, err := loadWav(infile)
 	if err != nil {
@@ -28,7 +29,7 @@ func Demo(transpose int, infile, outfile string) error {
 	iBegin := 0
 	phase := .0
 	lastFreq := 440.0
-	sh := &shifter{Fs: fs}
+	sh := &shifter{fs: fs}
 	for i := range src {
 		j := int(math.Floor(t / float64(framePeriod)))
 		freq := lastFreq

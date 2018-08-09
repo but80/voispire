@@ -4,7 +4,7 @@ import (
 	"math"
 )
 
-// https://arxiv.org/abs/0911.5171
+// 参考論文: https://arxiv.org/abs/0911.5171
 //
 // Mx(t) = Σk{ x(at+k)·sinc((v−a)t − k) }
 // sinc(t) = t=0 ? 1 : sin(πt) / πt
@@ -20,6 +20,12 @@ import (
 // 計算時は sinc が 1 に近い k に絞って Σ を取る
 //   - k ∈ round((v−a)t) の前後±N
 
+const (
+	// sigmaWidth は、sinc関数による補間に前後各いくつの波形を考慮するかを表します。
+	sigmaWidth = 2
+)
+
+// sinc は、正規化sinc関数です。
 func sinc(t float64) float64 {
 	if t == .0 {
 		return 1.0
@@ -28,23 +34,29 @@ func sinc(t float64) float64 {
 	return math.Sin(pt) / pt
 }
 
+// shape は、1周期分の波形です。
 type shape struct {
+	// flen は、float64(len(data)) の値を保持します。
+	// この逆数がオリジナルの周波数に一致します。
 	flen float64
+	// data は、波形データです。
 	data []float64
 }
 
+// get は、指定した位相におけるこの波形の振幅を取得します。
 func (sh *shape) get(phase float64) float64 {
+	// TODO: lerp補間？
 	return sh.data[int(math.Floor(phase*sh.flen))]
 }
 
-var sigmaWidth = 2
-
+// shifter は、ピッチシフタです。
 type shifter struct {
-	Fs       int
+	fs       int
 	totalLen int
 	shapes   []shape
 }
 
+// addShape は、1周期分の波形を追加します。
 func (sh *shifter) addShape(data []float64) {
 	sh.totalLen += len(data)
 	sh.shapes = append(sh.shapes, shape{
@@ -53,6 +65,7 @@ func (sh *shifter) addShape(data []float64) {
 	})
 }
 
+// play は、指定したピッチ係数・速度係数で再生した波形を返します。
 func (sh *shifter) play(pitchCoef, speedCoef float64) []float64 {
 	result := make([]float64, 0, sh.totalLen)
 	phase := .0

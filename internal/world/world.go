@@ -15,6 +15,7 @@ const (
 	useStoneMask = false
 )
 
+// Harvest は、波形 x の基本周波数を framePeriod 秒間隔で推定します。
 func Harvest(x []float64, fs int, framePeriod float64) []float64 {
 	n := len(x)
 	m := n / int(math.Floor(float64(fs)*framePeriod))
