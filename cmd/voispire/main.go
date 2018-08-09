@@ -34,10 +34,6 @@ func main() {
 	app.UsageText = "voispire [オプション...] <入力音声ファイル> <出力音声ファイル保存先>"
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
-			Name:  "quiet, q",
-			Usage: "進捗情報等の表示を抑制します",
-		},
-		cli.BoolFlag{
 			Name:  "verbose, v",
 			Usage: "詳細を表示します",
 		},
@@ -60,6 +56,15 @@ func main() {
 		if ctx.NArg() < 2 {
 			cli.ShowAppHelpAndExit(ctx, 1)
 		}
+
+		if ctx.Bool("debug") {
+			colog.SetMinLevel(colog.LDebug)
+		} else if ctx.Bool("verbose") {
+			colog.SetMinLevel(colog.LInfo)
+		} else {
+			colog.SetMinLevel(colog.LWarning)
+		}
+
 		if err := voispire.Demo(ctx.Args()[0], ctx.Args()[1]); err != nil {
 			panic(err)
 		}
