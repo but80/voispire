@@ -43,17 +43,17 @@ func saveWav(filename string, fs int, data []float64) error {
 		return errors.Wrap(err, "出力音声ファイルのオープンに失敗しました")
 	}
 	enc := wav.NewEncoder(out, fs, 16, 1, 1)
-	noClip := true
-	for _, v := range data {
+	iLastClip := -fs
+	for i, v := range data {
 		if v < -1.0 || 1.0 < v {
 			if v < -1.0 {
 				v = -1.0
 			} else if 1.0 < v {
 				v = 1.0
 			}
-			if noClip {
-				log.Print("warn: クリッピングが発生しました")
-				noClip = false
+			if iLastClip+fs <= i {
+				log.Printf("warn: クリッピングが発生しました: %.3f sec", float64(i)/float64(fs))
+				iLastClip = i
 			}
 		}
 		if err := enc.WriteFrame(uint16(v * 32767)); err != nil {
