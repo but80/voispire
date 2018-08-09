@@ -1,4 +1,4 @@
-package main
+package voispire
 
 import (
 	"fmt"
@@ -120,7 +120,7 @@ func (shifter *Shifter) Play(pitchCoef, speedCoef float64) []float64 {
 	return result
 }
 
-func foo(infile string) error {
+func Demo(infile, outfile string) error {
 	src, fs, err := loadWav(infile)
 	if err != nil {
 		return errors.Wrap(err, "音声ファイルの読み込みに失敗しました")
@@ -158,7 +158,7 @@ func foo(infile string) error {
 	out := sh.Play(1.3, 1.0)
 
 	log.Print("info: 保存中...")
-	saveWav("test.out.wav", fs, out)
+	saveWav(outfile, fs, out)
 	log.Print("info: 完了")
 	return nil
 }
@@ -178,10 +178,4 @@ func saveWav(filename string, fs int, data []float64) error {
 		return errors.Wrap(err, "出力音声ファイルのクローズに失敗しました")
 	}
 	return out.Close()
-}
-
-func main() {
-	if err := foo("test.wav"); err != nil {
-		panic(err)
-	}
 }
