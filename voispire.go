@@ -21,7 +21,8 @@ func Demo(transpose int, infile, outfile string) error {
 	}
 
 	log.Print("info: 基本周波数を推定中...")
-	f0 := world.Harvest(src, fs, framePeriod)
+	f0, spectro := world.Harvest(src, fs, framePeriod)
+	_ = spectro
 
 	log.Print("info: 解析中...")
 	t := .0
