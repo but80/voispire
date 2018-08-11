@@ -36,14 +36,14 @@ func sinc(t float64) float64 {
 
 // shape は、1周期分の波形です。
 type shape struct {
-	// flen は、float64(len(data)) の値を保持します。
-	// この逆数がオリジナルの周波数に一致します。
+	// flen は、波形データのサンプル数 float64(len(data)) の値を保持します。
+	// この逆数がオリジナルの周波数 [1/サンプル] に一致します。
 	flen float64
-	// data は、波形データです。
+	// data は、波形データです。各要素は振幅 -1≦v≦1 を表します。
 	data []float64
 }
 
-// get は、指定した位相におけるこの波形の振幅を取得します。
+// get は、指定した位相 0≦phase＜1 におけるこの波形の振幅を取得します。
 func (sh *shape) get(phase float64) float64 {
 	// TODO: lerp補間？
 	return sh.data[int(math.Floor(phase*sh.flen))]
@@ -65,29 +65,38 @@ func (sh *shifter) addShape(data []float64) {
 	})
 }
 
-// play は、指定したピッチ係数・速度係数で再生した波形を返します。
+// get は、iShape 周目の波形の位相 0≦srcPhase＜1 における振幅を返します。
+// 返される振幅は、前後各 sigmaWidth 個の波形の同じ位相における振幅を用いて補間された値で、
+// 0≦dstPhase＜1 はその係数に用いられます（小さいほど前方、大きいほど後方の波形に比重が置かれます）。
+func (sh *shifter) get(iShape int, srcPhase, dstPhase float64) float64 {
+	v := .0
+	sincPhase := srcPhase - dstPhase
+	for dShape := -sigmaWidth; dShape <= sigmaWidth; dShape++ {
+		v += sh.shapes[iShape+dShape].get(srcPhase) * sinc(sincPhase+float64(dShape))
+	}
+	return v
+}
+
+// play は、指定したピッチ係数 pitchCoef、速度係数 speedCoef で再生した波形を返します。
+// pitchCoef、speedCoef ともに 1 のとき、オリジナルと同じ波形となります。
 func (sh *shifter) play(pitchCoef, speedCoef float64) []float64 {
 	result := make([]float64, 0, sh.totalLen)
-	phase := .0
-	i := .0
+	srcPhase := .0
+	dstPhase := .0
 	for iShape := sigmaWidth; iShape < len(sh.shapes)-sigmaWidth; iShape++ {
 		n := sh.shapes[iShape].flen
-		dphase := 1.0 / n * pitchCoef
+		srcPhaseStep := 1.0 / n * pitchCoef
 		di := speedCoef / n
-		for ; i < 1.0; i += di {
-			v := .0
-			sincPhase := phase - i
-			for j := -sigmaWidth; j <= sigmaWidth; j++ {
-				v += sh.shapes[iShape+j].get(phase) * sinc(sincPhase+float64(j))
-			}
+		for ; dstPhase < 1.0; dstPhase += di {
+			v := sh.get(iShape, srcPhase, dstPhase)
 			result = append(result, v)
-			phase += dphase
-			for 1.0 <= phase {
-				phase -= 1.0
+			srcPhase += srcPhaseStep
+			for 1.0 <= srcPhase {
+				srcPhase -= 1.0
 			}
 		}
-		for 1.0 <= i {
-			i -= 1.0
+		for 1.0 <= dstPhase {
+			dstPhase -= 1.0
 		}
 	}
 	return result
