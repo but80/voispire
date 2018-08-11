@@ -68,16 +68,29 @@ func Demo(transpose int, infile, outfile string) error {
 	splittedCh := splitShapes(src, f0, float64(fs))
 	pitchCoef := math.Pow(2.0, float64(transpose)/12.0)
 	outCh := stretch(splittedCh, pitchCoef, 1.0)
-	if err := render(outCh); err != nil {
-		return errors.Wrap(err, "出力ストリームのオープンに失敗しました")
-	}
 
-	for {
-		time.Sleep(time.Second)
+	if outfile == "--" {
+		if err := render(outCh); err != nil {
+			return errors.Wrap(err, "出力ストリームのオープンに失敗しました")
+		}
+		for {
+			// TODO: 入力が閉じたら終了
+			time.Sleep(time.Second)
+		}
+	} else {
+		log.Print("info: 保存中...")
+		result := make([]float64, len(src))
+		i := 0
+		for i < len(result) {
+			v, ok := <-outCh
+			if !ok {
+				break
+			}
+			result[i] = v
+			i++
+		}
+		saveWav(outfile, fs, result)
+		log.Print("info: 完了")
 	}
-
-	// log.Print("info: 保存中...")
-	// saveWav(outfile, fs, result)
-	// log.Print("info: 完了")
 	return nil
 }

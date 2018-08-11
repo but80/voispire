@@ -11,6 +11,9 @@
 ```bash
 # 引数は <ピッチシフト量[半音]> <入力音声ファイル> <出力音声ファイル保存先>
 go run cmd/voispire/main.go 12 input.wav output.wav
+
+# 出力を -- とするとPortAudioで直接再生
+go run cmd/voispire/main.go 12 input.wav --
 ```
 
 TODO:
