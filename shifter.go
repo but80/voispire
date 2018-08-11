@@ -37,8 +37,9 @@ func sinc(t float64) float64 {
 // shape は、1周期分の波形です。
 type shape struct {
 	// flen は、波形データのサンプル数 float64(len(data)) の値を保持します。
-	// この逆数がオリジナルの周波数 [1/サンプル] に一致します。
 	flen float64
+	// freq は、波形データのオリジナルの周波数 [1/サンプル] で、1/flen に一致します。
+	freq float64
 	// data は、波形データです。各要素は振幅 -1≦v≦1 を表します。
 	data []float64
 }
@@ -59,8 +60,10 @@ type shifter struct {
 // addShape は、1周期分の波形を追加します。
 func (sh *shifter) addShape(data []float64) {
 	sh.totalLen += len(data)
+	flen := float64(len(data))
 	sh.shapes = append(sh.shapes, shape{
-		flen: float64(len(data)),
+		flen: flen,
+		freq: 1.0 / flen,
 		data: data,
 	})
 }
@@ -84,10 +87,10 @@ func (sh *shifter) play(pitchCoef, speedCoef float64) []float64 {
 	srcPhase := .0
 	dstPhase := .0
 	for iShape := sigmaWidth; iShape < len(sh.shapes)-sigmaWidth; iShape++ {
-		n := sh.shapes[iShape].flen
-		srcPhaseStep := 1.0 / n * pitchCoef
-		di := speedCoef / n
-		for ; dstPhase < 1.0; dstPhase += di {
+		freq := sh.shapes[iShape].freq
+		srcPhaseStep := freq * pitchCoef
+		dstPhaseStep := freq * speedCoef
+		for ; dstPhase < 1.0; dstPhase += dstPhaseStep {
 			v := sh.get(iShape, srcPhase, dstPhase)
 			result = append(result, v)
 			srcPhase += srcPhaseStep
