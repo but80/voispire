@@ -82,25 +82,27 @@ func (sh *shifter) get(iShape int, srcPhase, dstPhase float64) float64 {
 
 // play は、指定したピッチ係数 pitchCoef、速度係数 speedCoef で再生した波形を返します。
 // pitchCoef、speedCoef ともに 1 のとき、オリジナルと同じ波形となります。
-func (sh *shifter) play(pitchCoef, speedCoef float64) []float64 {
-	result := make([]float64, 0, sh.totalLen)
-	srcPhase := .0
-	dstPhase := .0
-	for iShape := sigmaWidth; iShape < len(sh.shapes)-sigmaWidth; iShape++ {
-		freq := sh.shapes[iShape].freq
-		srcPhaseStep := freq * pitchCoef
-		dstPhaseStep := freq * speedCoef
-		for ; dstPhase < 1.0; dstPhase += dstPhaseStep {
-			v := sh.get(iShape, srcPhase, dstPhase)
-			result = append(result, v)
-			srcPhase += srcPhaseStep
-			for 1.0 <= srcPhase {
-				srcPhase -= 1.0
+func (sh *shifter) play(pitchCoef, speedCoef float64) chan float64 {
+	out := make(chan float64)
+	go func() {
+		srcPhase := .0
+		dstPhase := .0
+		for iShape := sigmaWidth; iShape < len(sh.shapes)-sigmaWidth; iShape++ {
+			freq := sh.shapes[iShape].freq
+			srcPhaseStep := freq * pitchCoef
+			dstPhaseStep := freq * speedCoef
+			for ; dstPhase < 1.0; dstPhase += dstPhaseStep {
+				out <- sh.get(iShape, srcPhase, dstPhase)
+				srcPhase += srcPhaseStep
+				for 1.0 <= srcPhase {
+					srcPhase -= 1.0
+				}
+			}
+			for 1.0 <= dstPhase {
+				dstPhase -= 1.0
 			}
 		}
-		for 1.0 <= dstPhase {
-			dstPhase -= 1.0
-		}
-	}
-	return result
+		close(out)
+	}()
+	return out
 }

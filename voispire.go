@@ -51,10 +51,21 @@ func Demo(transpose int, infile, outfile string) error {
 
 	log.Print("info: 変換中...")
 	pitchCoef := math.Pow(2.0, float64(transpose)/12.0)
-	out := sh.play(pitchCoef, 1.0)
+
+	result := make([]float64, len(src))
+	ch := sh.play(pitchCoef, 1.0)
+	i := 0
+	for i < len(result) {
+		v, ok := <-ch
+		if !ok {
+			break
+		}
+		result[i] = v
+		i++
+	}
 
 	log.Print("info: 保存中...")
-	saveWav(outfile, fs, out)
+	saveWav(outfile, fs, result)
 	log.Print("info: 完了")
 	return nil
 }
