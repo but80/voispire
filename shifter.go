@@ -1,6 +1,7 @@
 package voispire
 
 import (
+	"log"
 	"math"
 )
 
@@ -23,6 +24,8 @@ import (
 const (
 	// sigmaWidth は、sinc関数による補間に前後各いくつの波形を考慮するかを表します。
 	sigmaWidth = 2
+	// sigmaTotal は、sinc関数による補間時に考慮する全波形の個数です。
+	sigmaTotal = sigmaWidth*2 + 1
 )
 
 // sinc は、正規化sinc関数です。
@@ -44,52 +47,71 @@ type shape struct {
 	data []float64
 }
 
+func makeShape(data []float64) shape {
+	flen := float64(len(data))
+	return shape{
+		flen: flen,
+		freq: 1.0 / flen,
+		data: data,
+	}
+}
+
 // get は、指定した位相 0≦phase＜1 におけるこの波形の振幅を取得します。
 func (sh *shape) get(phase float64) float64 {
 	// TODO: lerp補間？
 	return sh.data[int(math.Floor(phase*sh.flen))]
 }
 
-// shifter は、ピッチシフタです。
-type shifter struct {
-	shapes   []shape
+// shapeBuffer は、波形の履歴を保持するバッファです。
+type shapeBuffer struct {
+	shapes []shape
 }
 
-// addShape は、1周期分の波形を追加します。
-func (sh *shifter) addShape(data []float64) {
-	flen := float64(len(data))
-	sh.shapes = append(sh.shapes, shape{
-		flen: flen,
-		freq: 1.0 / flen,
-		data: data,
-	})
-}
-
-// get は、iShape 周目の波形の位相 0≦srcPhase＜1 における振幅を返します。
+// get は、現在バッファの中心にある波形の位相 0≦srcPhase＜1 における振幅を返します。
 // 返される振幅は、前後各 sigmaWidth 個の波形の同じ位相における振幅を用いて補間された値で、
 // 0≦dstPhase＜1 はその係数に用いられます（小さいほど前方、大きいほど後方の波形に比重が置かれます）。
-func (sh *shifter) get(iShape int, srcPhase, dstPhase float64) float64 {
+func (buf *shapeBuffer) get(srcPhase, dstPhase float64) float64 {
 	v := .0
 	sincPhase := srcPhase - dstPhase
-	for dShape := -sigmaWidth; dShape <= sigmaWidth; dShape++ {
-		v += sh.shapes[iShape+dShape].get(srcPhase) * sinc(sincPhase+float64(dShape))
+	for i := 0; i < sigmaTotal; i++ {
+		d := i - sigmaWidth
+		v += buf.shapes[i].get(srcPhase) * sinc(sincPhase+float64(d))
 	}
 	return v
 }
 
-// play は、指定したピッチ係数 pitchCoef、速度係数 speedCoef で再生した波形を返します。
+func (buf *shapeBuffer) rotate(s shape) {
+	if len(buf.shapes) == 0 {
+		buf.shapes = make([]shape, sigmaTotal)
+		for i := range buf.shapes {
+			buf.shapes[i] = s
+		}
+		log.Print("debug: shapeBuffer is initialized")
+		return
+	}
+	buf.shapes = append(buf.shapes[1:], s)
+}
+
+func (buf *shapeBuffer) freq() float64 {
+	return buf.shapes[sigmaWidth].freq
+}
+
+// stretch は、指定したピッチ係数 pitchCoef、速度係数 speedCoef で再生した波形を返します。
 // pitchCoef、speedCoef ともに 1 のとき、オリジナルと同じ波形となります。
-func (sh *shifter) play(pitchCoef, speedCoef float64) chan float64 {
-	out := make(chan float64)
+func stretch(input chan shape, pitchCoef, speedCoef float64) chan float64 {
+	buf := &shapeBuffer{}
+	out := make(chan float64, 4096)
 	go func() {
+		log.Print("debug: stretch goroutine is started")
 		srcPhase := .0
 		dstPhase := .0
-		for iShape := sigmaWidth; iShape < len(sh.shapes)-sigmaWidth; iShape++ {
-			freq := sh.shapes[iShape].freq
+		for s := range input {
+			buf.rotate(s)
+			freq := buf.freq()
 			srcPhaseStep := freq * pitchCoef
 			dstPhaseStep := freq * speedCoef
 			for ; dstPhase < 1.0; dstPhase += dstPhaseStep {
-				out <- sh.get(iShape, srcPhase, dstPhase)
+				out <- buf.get(srcPhase, dstPhase)
 				srcPhase += srcPhaseStep
 				for 1.0 <= srcPhase {
 					srcPhase -= 1.0

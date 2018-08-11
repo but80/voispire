@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	useStoneMask = false
+	useStoneMask  = false
 	useCheapTrick = false
 )
 
