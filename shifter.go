@@ -52,14 +52,11 @@ func (sh *shape) get(phase float64) float64 {
 
 // shifter は、ピッチシフタです。
 type shifter struct {
-	fs       int
-	totalLen int
 	shapes   []shape
 }
 
 // addShape は、1周期分の波形を追加します。
 func (sh *shifter) addShape(data []float64) {
-	sh.totalLen += len(data)
 	flen := float64(len(data))
 	sh.shapes = append(sh.shapes, shape{
 		flen: flen,

@@ -30,7 +30,7 @@ func Demo(transpose int, infile, outfile string) error {
 	iBegin := 0
 	phase := .0
 	lastFreq := 440.0
-	sh := &shifter{fs: fs}
+	sh := &shifter{}
 	for i := range src {
 		j := int(math.Floor(t / float64(framePeriod)))
 		freq := lastFreq
