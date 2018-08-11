@@ -21,6 +21,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/gordonklaus/portaudio"
+  packages = ["."]
+  revision = "e66c30a9c4ca11f93538cf8c004831bfb76f3838"
+
+[[projects]]
+  branch = "master"
   name = "github.com/mattetti/audio"
   packages = ["riff"]
   revision = "b7bc1ebaf222d206df57afe66d58ed2249a8061d"
@@ -49,9 +55,15 @@
   revision = "cfb38830724cc34fedffe9a2a29fb54fa9169cd1"
   version = "v1.20.0"
 
+[[projects]]
+  branch = "master"
+  name = "github.com/xlab/closer"
+  packages = ["."]
+  revision = "89cd22812c4fd5188746092cd10992caeffc75ab"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "0858aba677ba587cf7c2139ae46489df5249802753af00c934ea6a60d2f3a549"
+  inputs-digest = "76d7630d84fa41a26778099688a3d601ecae91e9e8efc132780e85a80c0b5efd"
   solver-name = "gps-cdcl"
   solver-version = 1
