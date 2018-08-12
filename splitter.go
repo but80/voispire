@@ -3,14 +3,16 @@ package voispire
 import (
 	"log"
 	"math"
+
+	"github.com/but80/voispire/internal/buffer"
 )
 
 const (
 	minFreq = 1.0
 )
 
-func splitShapes(src, f0 []float64, fs float64) chan shape {
-	out := make(chan shape, 4096)
+func splitShapes(src, f0 []float64, fs float64) chan buffer.Shape {
+	out := make(chan buffer.Shape, 4096)
 	go func() {
 		log.Print("debug: splitShapes goroutine is started")
 		t := .0
@@ -29,7 +31,7 @@ func splitShapes(src, f0 []float64, fs float64) chan shape {
 				for 1.0 <= phase {
 					phase -= 1.0
 				}
-				out <- makeShape(src[iBegin:i])
+				out <- buffer.MakeShape(src[iBegin:i])
 				iBegin = i
 			}
 			lastFreq = freq
