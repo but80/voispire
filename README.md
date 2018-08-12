@@ -1,5 +1,8 @@
 # voispire
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/but80/voispire)](https://goreportcard.com/report/github.com/but80/voispire)
+[![MIT License](https://img.shields.io/badge/license-MIT-brightgreen.svg)](LICENSE)
+
 **WORK IN PROGRESS**
 
 ボイスチェンジャーです。
@@ -16,10 +19,21 @@ go run cmd/voispire/main.go 12 input.wav output.wav
 go run cmd/voispire/main.go 12 input.wav --
 ```
 
-TODO:
+## TODO
 
 - フォルマントシフト
 - 基本周波数を先読みして発話開始箇所のプチノイズ軽減
 - 実際の周波数とのズレを軽減
   - BPF通した波形の0クロスを見る？
 - 入力のPortAudioストリーム化
+
+## License
+
+BSD 3-Clause License
+
+This software includes the following packages under each license:
+
+- [WORLD - a high-quality speech analysis, manipulation and synthesis system](https://github.com/mmorise/World) : BSD 3-Clause License
+- [go-audio/audio](https://github.com/go-audio/audio) : Apache-2.0
+- [go-audio/wav](https://github.com/go-audio/wav) : Apache-2.0
+- and the various MIT/ISC licensed great softwares
