@@ -59,8 +59,37 @@ func MakeShape(data []float64) Shape {
 
 // get は、指定した位相 0≦phase＜1 におけるこの波形の振幅を取得します。
 func (sh *Shape) get(phase float64) float64 {
-	// TODO: lerp補間？
 	return sh.data[int(math.Floor(phase*sh.flen))]
+}
+
+// getLinear は、指定した位相 0≦phase＜1 におけるこの波形の線形補間された振幅を取得します。
+// TODO: 0, 1 付近で前後の波形のサンプルを参照
+func (sh *Shape) getLinear(phase float64) float64 {
+	i, f := math.Modf(phase * sh.flen)
+	i0 := int(i)
+	i1 := i0 + 1
+	if len(sh.data) <= i1 {
+		return sh.data[i0]
+	}
+	return sh.data[i0]*(1.0-f) + sh.data[i1]*f
+}
+
+// getLagrange は、指定した位相 0≦phase＜1 におけるこの波形のラグランジュ補間された振幅を取得します。
+func (sh *Shape) getLagrange(phase float64) float64 {
+	i, f := math.Modf(phase * sh.flen)
+	i1 := int(i)
+	if i1 == 0 {
+		return sh.data[0]*(1.0-f) + sh.data[1]*f
+	}
+	i0 := i1 - 1
+	i2 := i1 + 1
+	if len(sh.data) <= i2 {
+		return sh.data[i1]
+	}
+	y0 := sh.data[i0]
+	y1 := sh.data[i1]
+	y2 := sh.data[i2]
+	return 0.5*f*((f-1.0)*y0+(f+1.0)*y2) - (f-1.0)*(f+1.0)*y1
 }
 
 // ShapeHistory は、波形の履歴を一定数保持する領域です。
@@ -76,12 +105,13 @@ func (buf *ShapeHistory) Get(srcPhase, dstPhase float64) float64 {
 	sincPhase := srcPhase - dstPhase
 	for i := 0; i < sigmaTotal; i++ {
 		d := i - sigmaWidth
-		v += buf.shapes[i].get(srcPhase) * sinc(sincPhase+float64(d))
+		v += buf.shapes[i].getLagrange(srcPhase) * sinc(sincPhase+float64(d))
 	}
 	return v
 }
 
 // Rotate は、波形の履歴に一つの Shape を追記し、一定数を超えた古い Shape を履歴から削除します。
+// TODO: リングバッファ化
 func (buf *ShapeHistory) Rotate(s Shape) {
 	if len(buf.shapes) == 0 {
 		buf.shapes = make([]Shape, sigmaTotal)
