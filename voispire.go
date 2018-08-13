@@ -5,6 +5,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/but80/voispire/internal/wav"
 	"github.com/but80/voispire/internal/world"
 	"github.com/gordonklaus/portaudio"
 	"github.com/pkg/errors"
@@ -55,7 +56,7 @@ const (
 
 // Demo は、デモ実装です。
 func Demo(transpose int, infile, outfile string) error {
-	src, fs, err := loadWav(infile)
+	src, fs, err := wav.Load(infile)
 	if err != nil {
 		return errors.Wrap(err, "音声ファイルの読み込みに失敗しました")
 	}
@@ -89,7 +90,7 @@ func Demo(transpose int, infile, outfile string) error {
 			result[i] = v
 			i++
 		}
-		saveWav(outfile, fs, result)
+		wav.Save(outfile, fs, result)
 		log.Print("info: 完了")
 	}
 	return nil

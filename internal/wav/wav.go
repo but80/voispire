@@ -1,4 +1,4 @@
-package voispire
+package wav
 
 import (
 	"fmt"
@@ -11,7 +11,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-func loadWav(filename string) ([]float64, int, error) {
+// Load は、wavファイルを読み込み、モノラルの []float64 として返します。
+func Load(filename string) ([]float64, int, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, 0, err
@@ -37,7 +38,8 @@ func loadWav(filename string) ([]float64, int, error) {
 	return result, int(w.SampleRate), nil
 }
 
-func saveWav(filename string, fs int, data []float64) error {
+// Save は、モノラルの []float64 をwavファイルとして保存します。
+func Save(filename string, fs int, data []float64) error {
 	out, err := os.Create(filename)
 	if err != nil {
 		return errors.Wrap(err, "出力音声ファイルのオープンに失敗しました")
