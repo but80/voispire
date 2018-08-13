@@ -3,8 +3,8 @@ package voispire
 import (
 	"log"
 	"math"
-	"time"
 
+	"github.com/but80/voispire/internal/buffer"
 	"github.com/but80/voispire/internal/wav"
 	"github.com/but80/voispire/internal/world"
 	"github.com/gordonklaus/portaudio"
@@ -12,7 +12,20 @@ import (
 	"github.com/xlab/closer"
 )
 
-func render(in chan float64) error {
+func join(input chan buffer.Shape) chan float64 {
+	out := make(chan float64, 4096)
+	go func() {
+		for s := range input {
+			for _, v := range s.Data() {
+				out <- v
+			}
+		}
+		close(out)
+	}()
+	return out
+}
+
+func render(in chan float64) (chan struct{}, error) {
 	portaudio.Initialize()
 	closer.Bind(func() {
 		portaudio.Terminate()
@@ -20,15 +33,20 @@ func render(in chan float64) error {
 
 	hostapi, err := portaudio.DefaultHostApi()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	log.Printf("info: Audio device: %s\n", hostapi.DefaultOutputDevice.Name)
 	params := portaudio.HighLatencyParameters(nil, hostapi.DefaultOutputDevice)
+	endCh := make(chan struct{})
 	stream, err := portaudio.OpenStream(params, func(out [][]float32) {
 		for i := range out[0] {
 			select {
 			case v, ok := <-in:
 				if !ok {
+					if endCh != nil {
+						close(endCh)
+						endCh = nil
+					}
 					break
 				}
 				out[0][i] = float32(v)
@@ -39,15 +57,15 @@ func render(in chan float64) error {
 		}
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	log.Printf("info: Sample rate: %f\n", stream.Info().SampleRate)
 	log.Printf("info: Output latency: %s\n", stream.Info().OutputLatency.String())
 
 	if err := stream.Start(); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return endCh, nil
 }
 
 const (
@@ -68,16 +86,15 @@ func Demo(transpose int, infile, outfile string) error {
 	log.Print("info: 変換中...")
 	splittedCh := splitShapes(src, f0, float64(fs))
 	pitchCoef := math.Pow(2.0, float64(transpose)/12.0)
-	outCh := stretch(splittedCh, pitchCoef, 1.0)
+	stretchedCh := stretch(splittedCh, pitchCoef, 1.0)
+	outCh := join(stretchedCh)
 
 	if outfile == "--" {
-		if err := render(outCh); err != nil {
+		endCh, err := render(outCh)
+		if err != nil {
 			return errors.Wrap(err, "出力ストリームのオープンに失敗しました")
 		}
-		for {
-			// TODO: 入力が閉じたら終了
-			time.Sleep(time.Second)
-		}
+		<-endCh
 	} else {
 		log.Print("info: 保存中...")
 		result := make([]float64, len(src))

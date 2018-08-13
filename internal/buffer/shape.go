@@ -57,6 +57,10 @@ func MakeShape(data []float64) Shape {
 	}
 }
 
+func (sh *Shape) Data() []float64 {
+	return sh.data
+}
+
 // get は、指定した位相 0≦phase＜1 におけるこの波形の振幅を取得します。
 func (sh *Shape) get(phase float64) float64 {
 	return sh.data[int(math.Floor(phase*sh.flen))]
