@@ -31,7 +31,7 @@ func splitShapes(src, f0 []float64, fs float64) chan buffer.Shape {
 				for 1.0 <= phase {
 					phase -= 1.0
 				}
-				out <- buffer.MakeShape(src[iBegin:i])
+				out <- buffer.MakeShapeTrimmed(src, iBegin, i)
 				iBegin = i
 			}
 			lastFreq = freq
