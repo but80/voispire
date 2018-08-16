@@ -73,7 +73,7 @@ const (
 )
 
 // Demo は、デモ実装です。
-func Demo(transpose int, infile, outfile string) error {
+func Demo(transpose float64, infile, outfile string) error {
 	src, fs, err := wav.Load(infile)
 	if err != nil {
 		return errors.Wrap(err, "音声ファイルの読み込みに失敗しました")
@@ -85,11 +85,11 @@ func Demo(transpose int, infile, outfile string) error {
 
 	log.Print("info: 変換中...")
 	splittedCh := splitShapes(src, f0, float64(fs))
-	pitchCoef := math.Pow(2.0, float64(transpose)/12.0)
+	pitchCoef := math.Pow(2.0, transpose/12.0)
 	stretchedCh := stretch(splittedCh, pitchCoef, 1.0)
 	outCh := join(stretchedCh)
 
-	if outfile == "--" {
+	if outfile == "" {
 		endCh, err := render(outCh)
 		if err != nil {
 			return errors.Wrap(err, "出力ストリームのオープンに失敗しました")

@@ -2,7 +2,6 @@ package main
 
 import (
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/but80/voispire"
@@ -33,19 +32,23 @@ func main() {
 		},
 	}
 	app.HelpName = "voispire"
-	app.UsageText = "voispire [オプション...] <ピッチシフト量[半音]> <入力音声ファイル> <出力音声ファイル保存先>"
+	app.UsageText = "voispire [オプション...] -t <ピッチシフト量[半音]> <入力音声ファイル> [<出力音声ファイル保存先>]"
 	app.Flags = []cli.Flag{
+		cli.Float64Flag{
+			Name:  "transpose, t",
+			Usage: "ピッチシフト量 [半音]",
+		},
 		cli.BoolFlag{
 			Name:  "verbose, v",
-			Usage: "詳細を表示します",
+			Usage: "詳細を表示",
 		},
 		cli.BoolFlag{
 			Name:  "debug",
-			Usage: "デバッグ情報を表示します",
+			Usage: "デバッグ情報を表示",
 		},
 		cli.BoolFlag{
 			Name:  "version",
-			Usage: "バージョン番号を表示します",
+			Usage: "バージョン番号を表示",
 		},
 	}
 	app.HideVersion = true
@@ -55,7 +58,7 @@ func main() {
 			cli.ShowVersion(ctx)
 			return nil
 		}
-		if ctx.NArg() < 3 {
+		if ctx.NArg() < 1 {
 			cli.ShowAppHelpAndExit(ctx, 1)
 		}
 
@@ -67,13 +70,16 @@ func main() {
 			colog.SetMinLevel(colog.LWarning)
 		}
 
-		transpose, err := strconv.Atoi(ctx.Args()[0])
-		if err != nil || transpose < -24 || 24 < transpose {
-			err := errors.New("ピッチシフト量は -24..24 の整数である必要があります")
+		transpose := ctx.Float64("transpose")
+		if transpose < -24.0 || 24.0 < transpose {
+			err := errors.New("ピッチシフト量は -24..24 の数値である必要があります")
 			return cli.NewExitError(err, 1)
 		}
-		infile := ctx.Args()[1]
-		outfile := ctx.Args()[2]
+		infile := ctx.Args()[0]
+		outfile := ""
+		if 2 <= ctx.NArg() {
+			outfile = ctx.Args()[1]
+		}
 		if err := voispire.Demo(transpose, infile, outfile); err != nil {
 			return cli.NewExitError(err, 1)
 		}
