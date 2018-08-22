@@ -86,7 +86,7 @@ func Demo(transpose float64, infile, outfile string) error {
 	log.Print("info: 変換中...")
 	pitchCoef := math.Pow(2.0, transpose/12.0)
 	ch1 := splitShapes(src, f0, float64(fs))
-	ch2 := stretch(ch1, pitchCoef, 1.0)
+	ch2 := stretch(ch1, pitchCoef, 1.0, 1.0)
 	ch3 := shiftFormant(ch2, .0)
 	outCh := join(ch3)
 
