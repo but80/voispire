@@ -12,6 +12,20 @@ import (
 	"github.com/xlab/closer"
 )
 
+type Module interface {
+	Start()
+}
+
+type Synthesizer interface {
+	Module
+	Output() chan buffer.Shape
+}
+
+type Insertion interface {
+	Synthesizer
+	Input(chan buffer.Shape)
+}
+
 func join(input chan buffer.Shape) chan float64 {
 	out := make(chan float64, 4096)
 	go func() {
@@ -85,10 +99,17 @@ func Demo(transpose float64, infile, outfile string) error {
 
 	log.Print("info: 変換中...")
 	pitchCoef := math.Pow(2.0, transpose/12.0)
-	ch1 := splitShapes(src, f0, float64(fs))
-	ch2 := stretch(ch1, pitchCoef, 1.0, 1.0)
-	ch3 := shiftFormant(ch2, .0)
-	outCh := join(ch3)
+	mod1 := newSplitter(src, f0, float64(fs))
+	mod2 := newStretcher(pitchCoef, 1.0, 1.0)
+	mod3 := newFormantShifter(.0)
+
+	mod2.Input(mod1.Output())
+	mod3.Input(mod2.Output())
+	outCh := join(mod3.Output())
+
+	mod1.Start()
+	mod2.Start()
+	mod3.Start()
 
 	if outfile == "" {
 		endCh, err := render(outCh)
