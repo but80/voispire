@@ -39,9 +39,13 @@ func sinc(t float64) float64 {
 
 // Shape は、1周期分の波形です。
 type Shape struct {
-	// flen は、波形データのサンプル数 float64(len(data)) の値を保持します。
-	flen float64
-	// freq は、波形データのオリジナルの周波数 [1/サンプル] で、1/flen に一致します。
+	// begin は、波形データの有効部分の開始位置 [サンプル] です。
+	begin int
+	// size は、波形データの有効部分のサンプル数です。
+	size int
+	// fsize は、波形データの有効部分のサンプル数を float64 型で保持します。
+	fsize float64
+	// freq は、波形データのオリジナルの周波数 [1/サンプル] で、1/fsize に一致します。
 	freq float64
 	// data は、波形データです。各要素は振幅 -1≦v≦1 を表します。
 	data []float64
@@ -49,28 +53,37 @@ type Shape struct {
 
 // MakeShape は、新しい Shape を作成します。
 func MakeShape(data []float64) Shape {
-	flen := float64(len(data))
+	return MakeShapeTrimmed(data, 0, len(data))
+}
+
+// MakeShapeTrimmed は、範囲を指定して新しい Shape を作成します。
+func MakeShapeTrimmed(data []float64, begin, end int) Shape {
+	size := end - begin
+	fsize := float64(size)
 	return Shape{
-		flen: flen,
-		freq: 1.0 / flen,
-		data: data,
+		begin: begin,
+		size:  size,
+		fsize: fsize,
+		freq:  1.0 / fsize,
+		data:  data,
 	}
 }
 
+// Data は、波形データを返します。
 func (sh *Shape) Data() []float64 {
-	return sh.data
+	return sh.data[sh.begin : sh.begin+sh.size]
 }
 
 // get は、指定した位相 0≦phase＜1 におけるこの波形の振幅を取得します。
 func (sh *Shape) get(phase float64) float64 {
-	return sh.data[int(math.Floor(phase*sh.flen))]
+	return sh.data[sh.begin+int(math.Floor(phase*sh.fsize))]
 }
 
 // getLinear は、指定した位相 0≦phase＜1 におけるこの波形の線形補間された振幅を取得します。
 // TODO: 0, 1 付近で前後の波形のサンプルを参照
 func (sh *Shape) getLinear(phase float64) float64 {
-	i, f := math.Modf(phase * sh.flen)
-	i0 := int(i)
+	i, f := math.Modf(phase * sh.fsize)
+	i0 := sh.begin + int(i)
 	i1 := i0 + 1
 	if len(sh.data) <= i1 {
 		return sh.data[i0]
@@ -80,8 +93,8 @@ func (sh *Shape) getLinear(phase float64) float64 {
 
 // getLagrange は、指定した位相 0≦phase＜1 におけるこの波形のラグランジュ補間された振幅を取得します。
 func (sh *Shape) getLagrange(phase float64) float64 {
-	i, f := math.Modf(phase * sh.flen)
-	i1 := int(i)
+	i, f := math.Modf(phase * sh.fsize)
+	i1 := sh.begin + int(i)
 	if i1 == 0 {
 		return sh.data[0]*(1.0-f) + sh.data[1]*f
 	}
