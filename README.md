@@ -13,10 +13,11 @@
 
 ```
 USAGE:
-   voispire [オプション...] -t <ピッチシフト量[半音]> <入力音声ファイル> [<出力音声ファイル保存先>]
+   voispire [オプション...] <入力音声ファイル> [<出力音声ファイル保存先>]
 
 GLOBAL OPTIONS:
    --transpose value, -t value  ピッチシフト量 [半音] (default: 0)
+   --formant value, -f value    フォルマントシフト量 [半音] (default: 0)
    --verbose, -v                詳細を表示
    --debug                      デバッグ情報を表示
    --version                    バージョン番号を表示

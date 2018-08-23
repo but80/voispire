@@ -38,6 +38,10 @@ func main() {
 			Name:  "transpose, t",
 			Usage: "ピッチシフト量 [半音]",
 		},
+		cli.Float64Flag{
+			Name:  "formant, f",
+			Usage: "フォルマントシフト量 [半音]",
+		},
 		cli.BoolFlag{
 			Name:  "verbose, v",
 			Usage: "詳細を表示",
@@ -75,12 +79,19 @@ func main() {
 			err := errors.New("ピッチシフト量は -24..24 の数値である必要があります")
 			return cli.NewExitError(err, 1)
 		}
+
+		formant := ctx.Float64("formant")
+		if formant < -24.0 || 24.0 < formant {
+			err := errors.New("フォルマントシフト量は -24..24 の数値である必要があります")
+			return cli.NewExitError(err, 1)
+		}
+
 		infile := ctx.Args()[0]
 		outfile := ""
 		if 2 <= ctx.NArg() {
 			outfile = ctx.Args()[1]
 		}
-		if err := voispire.Demo(transpose, infile, outfile); err != nil {
+		if err := voispire.Demo(transpose, formant, infile, outfile); err != nil {
 			return cli.NewExitError(err, 1)
 		}
 		return nil
