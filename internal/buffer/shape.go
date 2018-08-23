@@ -3,6 +3,8 @@ package buffer
 import (
 	"log"
 	"math"
+
+	"github.com/but80/voispire/internal/smath"
 )
 
 // 参考論文: https://arxiv.org/abs/0911.5171
@@ -27,15 +29,6 @@ const (
 	// sigmaTotal は、sinc関数による補間時に考慮する全波形の個数です。
 	sigmaTotal = sigmaWidth*2 + 1
 )
-
-// sinc は、正規化sinc関数です。
-func sinc(t float64) float64 {
-	if t == .0 {
-		return 1.0
-	}
-	pt := math.Pi * t
-	return math.Sin(pt) / pt
-}
 
 // Shape は、1周期分の波形です。
 type Shape struct {
@@ -122,7 +115,7 @@ func (buf *ShapeHistory) Get(srcPhase, dstPhase float64) float64 {
 	sincPhase := srcPhase - dstPhase
 	for i := 0; i < sigmaTotal; i++ {
 		d := i - sigmaWidth
-		v += buf.shapes[i].getLagrange(srcPhase) * sinc(sincPhase+float64(d))
+		v += buf.shapes[i].getLagrange(srcPhase) * smath.SincNormalized(sincPhase+float64(d))
 	}
 	return v
 }
