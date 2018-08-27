@@ -11,35 +11,33 @@ const (
 	minFreq = 1.0
 )
 
-type splitter struct {
+type f0Splitter struct {
+	input  chan float64
 	output chan buffer.Shape
-	src    []float64
 	f0     []float64
 	fs     float64
 }
 
-func newSplitter(src, f0 []float64, fs float64) *splitter {
-	return &splitter{
-		src:    src,
+func newF0Splitter(f0 []float64, fs float64) *f0Splitter {
+	return &f0Splitter{
 		f0:     f0,
 		fs:     fs,
 		output: make(chan buffer.Shape, 4096),
 	}
 }
 
-func (s *splitter) Output() chan buffer.Shape {
-	return s.output
-}
-
-func (s *splitter) Start() {
+func (s *f0Splitter) Start() {
 	go func() {
-		log.Print("debug: splitter goroutine is started")
+		log.Print("debug: f0Splitter goroutine is started")
 		t := .0
 		dt := 1.0 / s.fs
 		iBegin := 0
 		phase := .0
 		lastFreq := 440.0
-		for i := range s.src {
+		buf := []float64{}
+		for v := range s.input {
+			i := len(buf)
+			buf = append(buf, v)
 			j := int(math.Floor(t / float64(framePeriod)))
 			freq := lastFreq
 			if j < len(s.f0) && minFreq <= s.f0[j] {
@@ -50,7 +48,7 @@ func (s *splitter) Start() {
 				for 1.0 <= phase {
 					phase -= 1.0
 				}
-				s.output <- buffer.MakeShapeTrimmed(s.src, iBegin, i)
+				s.output <- buffer.MakeShapeTrimmed(buf, iBegin, i)
 				iBegin = i
 			}
 			lastFreq = freq

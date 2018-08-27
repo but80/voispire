@@ -14,6 +14,7 @@ type stretcher struct {
 	pitchCoef    float64
 	speedCoef    float64
 	resampleCoef float64
+	minChunkLen  int
 }
 
 func newStretcher(pitchCoef, speedCoef, resampleCoef float64) *stretcher {
@@ -22,15 +23,8 @@ func newStretcher(pitchCoef, speedCoef, resampleCoef float64) *stretcher {
 		pitchCoef:    pitchCoef,
 		speedCoef:    speedCoef,
 		resampleCoef: resampleCoef,
+		minChunkLen:  1024,
 	}
-}
-
-func (s *stretcher) Input(input chan buffer.Shape) {
-	s.input = input
-}
-
-func (s *stretcher) Output() chan buffer.Shape {
-	return s.output
 }
 
 func (s *stretcher) Start() {
@@ -39,23 +33,29 @@ func (s *stretcher) Start() {
 		log.Print("debug: stretcher goroutine is started")
 		srcPhase := .0
 		dstPhase := .0
+		result := []float64{}
 		for shape := range s.input {
 			history.Rotate(shape)
 			freq := history.Freq()
 			srcPhaseStep := freq * s.pitchCoef / s.resampleCoef
 			dstPhaseStep := freq * s.speedCoef / s.resampleCoef
-			buf := []float64{}
 			for ; dstPhase < 1.0; dstPhase += dstPhaseStep {
-				buf = append(buf, history.Get(srcPhase, dstPhase))
+				result = append(result, history.Get(srcPhase, dstPhase))
 				srcPhase += srcPhaseStep
 				for 1.0 <= srcPhase {
 					srcPhase -= 1.0
 				}
 			}
-			s.output <- buffer.MakeShape(buf)
+			if s.minChunkLen <= len(result) {
+				s.output <- buffer.MakeShape(result)
+				result = []float64{}
+			}
 			for 1.0 <= dstPhase {
 				dstPhase -= 1.0
 			}
+		}
+		if 0 < len(result) {
+			s.output <- buffer.MakeShape(result)
 		}
 		close(s.output)
 	}()
