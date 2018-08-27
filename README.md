@@ -24,21 +24,20 @@ GLOBAL OPTIONS:
    --help, -h                   show help
 ```
 
-今のところデモとしてWAVファイルのピッチシフトを試せます（`input.wav` はモノラル16bit限定）。
+今のところデモとしてWAVファイルのピッチシフト・フォルマントシフトを試せます（`input.wav` はモノラル16bit限定）。
 
 ```bash
-# 引数は -t <ピッチシフト量[半音]> <入力音声ファイル> [<出力音声ファイル保存先>]
-go run cmd/voispire/main.go -t 12 input.wav output.wav
+# 引数は -t <ピッチシフト量[半音]> -f <フォルマントシフト量[半音]> <入力音声ファイル> [<出力音声ファイル保存先>]
+go run cmd/voispire/main.go -t 6 -f 3 input.wav output.wav
 
 # 出力先を省略するとPortAudioで直接再生
-go run cmd/voispire/main.go -t 12 input.wav
+go run cmd/voispire/main.go -t 6 -f 3 input.wav
 ```
 
 ## TODO
 
+- WORLD由来のスペクトル包絡を使用してフォルマントシフトの実験
 - 基本周波数を先読みして発話開始箇所のプチノイズ軽減
-- 実際の周波数とのズレを軽減
-  - BPF通した波形の0クロスを見る？
 - 入力のPortAudioストリーム化
 
 ## License
