@@ -8,6 +8,12 @@
   revision = "fba8e7b1f46c3607f09760ce3880066e7ff57c5a"
 
 [[projects]]
+  name = "github.com/davecgh/go-spew"
+  packages = ["spew"]
+  revision = "8991bc29aa16c548c550c7ff78260e27b9ab7c73"
+  version = "v1.1.1"
+
+[[projects]]
   branch = "master"
   name = "github.com/go-audio/audio"
   packages = ["."]
@@ -26,15 +32,49 @@
   revision = "e66c30a9c4ca11f93538cf8c004831bfb76f3838"
 
 [[projects]]
+  name = "github.com/magefile/mage"
+  packages = [
+    "build",
+    "mage",
+    "mg",
+    "parse",
+    "parse/srcimporter",
+    "sh",
+    "types"
+  ]
+  revision = "198454a81e91598a7566fd7c87bf70ca9f6a7b13"
+  version = "v2.2.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/mattetti/audio"
   packages = ["riff"]
   revision = "b7bc1ebaf222d206df57afe66d58ed2249a8061d"
 
 [[projects]]
+  name = "github.com/mattn/go-shellwords"
+  packages = ["."]
+  revision = "02e3cf038dcea8290e44424da473dd12be796a8a"
+  version = "v1.0.3"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/mattn/go-zglob"
+  packages = [
+    ".",
+    "fastwalk"
+  ]
+  revision = "2ea3427bfa539cca900ca2768d8663ecc8a708c1"
+
+[[projects]]
   branch = "master"
   name = "github.com/mjibson/go-dsp"
-  packages = ["wav"]
+  packages = [
+    "dsputils",
+    "fft",
+    "wav",
+    "window"
+  ]
   revision = "11479a337f1259210b7c8f93f7bf2b0cc87b066e"
 
 [[projects]]
@@ -42,6 +82,18 @@
   packages = ["."]
   revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
   version = "v0.8.0"
+
+[[projects]]
+  name = "github.com/pmezard/go-difflib"
+  packages = ["difflib"]
+  revision = "792786c7400a136282c1664665ae0a8db921c6c2"
+  version = "v1.0.0"
+
+[[projects]]
+  name = "github.com/stretchr/testify"
+  packages = ["assert"]
+  revision = "f35b8ab0b5a2cef36673838d662e249dd9c94686"
+  version = "v1.2.2"
 
 [[projects]]
   name = "github.com/theckman/goconstraint"
@@ -64,6 +116,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "76d7630d84fa41a26778099688a3d601ecae91e9e8efc132780e85a80c0b5efd"
+  inputs-digest = "f3487f9a9f3a37b9606a01d6845349a3e43e63752ce8f177a1724b4a41e84b8f"
   solver-name = "gps-cdcl"
   solver-version = 1
