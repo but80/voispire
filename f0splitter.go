@@ -11,15 +11,15 @@ const (
 	minFreq = 1.0
 )
 
-type splitter struct {
+type f0Splitter struct {
 	output chan buffer.Shape
 	src    []float64
 	f0     []float64
 	fs     float64
 }
 
-func newSplitter(src, f0 []float64, fs float64) *splitter {
-	return &splitter{
+func newF0Splitter(src, f0 []float64, fs float64) *f0Splitter {
+	return &f0Splitter{
 		src:    src,
 		f0:     f0,
 		fs:     fs,
@@ -27,13 +27,9 @@ func newSplitter(src, f0 []float64, fs float64) *splitter {
 	}
 }
 
-func (s *splitter) Output() chan buffer.Shape {
-	return s.output
-}
-
-func (s *splitter) Start() {
+func (s *f0Splitter) Start() {
 	go func() {
-		log.Print("debug: splitter goroutine is started")
+		log.Print("debug: f0Splitter goroutine is started")
 		t := .0
 		dt := 1.0 / s.fs
 		iBegin := 0

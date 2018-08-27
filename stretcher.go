@@ -27,14 +27,6 @@ func newStretcher(pitchCoef, speedCoef, resampleCoef float64) *stretcher {
 	}
 }
 
-func (s *stretcher) Input(input chan buffer.Shape) {
-	s.input = input
-}
-
-func (s *stretcher) Output() chan buffer.Shape {
-	return s.output
-}
-
 func (s *stretcher) Start() {
 	history := &buffer.ShapeHistory{}
 	go func() {

@@ -26,14 +26,6 @@ func newFormantShifter(shift float64) *formantShifter {
 	}
 }
 
-func (s *formantShifter) Input(input chan buffer.Shape) {
-	s.input = input
-}
-
-func (s *formantShifter) Output() chan buffer.Shape {
-	return s.output
-}
-
 type peak struct {
 	index int
 	level float64
