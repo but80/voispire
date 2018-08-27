@@ -1,7 +1,8 @@
 # voispire
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/but80/voispire)](https://goreportcard.com/report/github.com/but80/voispire)
-[![MIT License](https://img.shields.io/badge/license-MIT-brightgreen.svg)](LICENSE)
+[![Godoc](https://godoc.org/github.com/but80/voispire?status.svg)](https://godoc.org/github.com/but80/voispire)
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 **WORK IN PROGRESS**
 
