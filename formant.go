@@ -1,29 +1,42 @@
 package voispire
 
 import (
-	"log"
 	"math/cmplx"
 	"sort"
-
-	"github.com/but80/voispire/internal/buffer"
-	"github.com/mjibson/go-dsp/fft"
 )
 
 // https://synsinger.wordpress.com/2015/11/21/pitch-shifting-using-a-spectral-envelope/
 
 type formantShifter struct {
-	output     chan buffer.Shape
-	input      chan buffer.Shape
+	*fftProcessor
 	shiftInv   float64
 	maxPeakNum int
 }
 
-func newFormantShifter(shift float64) *formantShifter {
-	return &formantShifter{
-		output:     make(chan buffer.Shape, 16),
-		shiftInv:   1.0 / shift,
-		maxPeakNum: 100,
-	}
+func newFormantShifter(src []float64, width int, shift float64) *formantShifter {
+	shiftInv := 1.0 / shift
+	maxPeakNum := 100
+	result := &formantShifter{}
+	result.fftProcessor = newFFTProcessor(src, width, func(spec []complex128) []complex128 {
+		if len(spec) <= 2 {
+			return spec
+		}
+		n := ((len(spec) | 1) + 1) >> 1
+		peaks := findPeaks(spec[:n], maxPeakNum)
+		env := peaksToEnvelope(n, peaks)
+		for i := 0; i < n; i++ {
+			j := int(float64(i) * shiftInv)
+			if n <= j {
+				j = n - 1
+			}
+			spec[i] *= complex(2.0*env[j]/env[i], .0)
+		}
+		for i := n; i < len(spec); i++ {
+			spec[i] = .0
+		}
+		return spec
+	})
+	return result
 }
 
 type peak struct {
@@ -91,32 +104,4 @@ func peaksToEnvelope(n int, peaks []peak) []float64 {
 		p0 = p1
 	}
 	return result
-}
-
-func (s *formantShifter) Start() {
-	go func() {
-		log.Print("debug: formantShifter goroutine is started")
-		for shape := range s.input {
-			data := shape.Data()
-			specSrc := fft.FFTReal(data)
-			specDst := make([]complex128, len(specSrc))
-			n := (len(specDst) + 1) / 2
-			peaks := findPeaks(specSrc[:n], s.maxPeakNum)
-			env := peaksToEnvelope(n, peaks)
-			for i := 1; i < n; i++ {
-				j := int(float64(i) * s.shiftInv)
-				if n <= j {
-					j = n - 1
-				}
-				specDst[i] = specSrc[i] * complex(env[j]/env[i], .0)
-			}
-			resultc := fft.IFFT(specDst)
-			result := make([]float64, len(data))
-			for i := 0; i < len(data); i++ {
-				result[i] = real(resultc[i]) * 2.0
-			}
-			s.output <- buffer.MakeShape(result)
-		}
-		close(s.output)
-	}()
 }

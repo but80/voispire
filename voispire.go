@@ -86,9 +86,9 @@ func Demo(transpose, formant float64, infile, outfile string) error {
 	log.Print("info: 変換中...")
 	pitchCoef := math.Pow(2.0, transpose/12.0)
 	formantCoef := math.Pow(2.0, (formant-transpose)/12.0)
-	mod1 := newF0Splitter(src, f0, float64(fs))
-	mod2 := newStretcher(pitchCoef, 1.0, 1.0)
-	mod3 := newFormantShifter(formantCoef)
+	mod1 := newFormantShifter(src, 1023, formantCoef)
+	mod2 := newF0Splitter(f0, float64(fs))
+	mod3 := newStretcher(pitchCoef, 1.0, 1.0)
 
 	mod2.input = mod1.output
 	mod3.input = mod2.output
