@@ -25,7 +25,7 @@ func join(input chan buffer.Shape) chan float64 {
 	return out
 }
 
-func render(in chan float64) (chan struct{}, error) {
+func render(in chan float64) (chan struct{}, *portaudio.StreamInfo, error) {
 	portaudio.Initialize()
 	closer.Bind(func() {
 		portaudio.Terminate()
@@ -33,7 +33,7 @@ func render(in chan float64) (chan struct{}, error) {
 
 	hostapi, err := portaudio.DefaultHostApi()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	log.Printf("info: Audio device: %s\n", hostapi.DefaultOutputDevice.Name)
 	params := portaudio.HighLatencyParameters(nil, hostapi.DefaultOutputDevice)
@@ -57,15 +57,15 @@ func render(in chan float64) (chan struct{}, error) {
 		}
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	log.Printf("info: Sample rate: %f\n", stream.Info().SampleRate)
 	log.Printf("info: Output latency: %s\n", stream.Info().OutputLatency.String())
 
 	if err := stream.Start(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return endCh, nil
+	return endCh, stream.Info(), nil
 }
 
 const (
@@ -96,15 +96,17 @@ func Demo(transpose, formant float64, infile, outfile string) error {
 
 	mod1.Start()
 	mod2.Start()
-	mod3.Start()
 
 	if outfile == "" {
-		endCh, err := render(outCh)
+		endCh, info, err := render(outCh)
 		if err != nil {
 			return errors.Wrap(err, "出力ストリームのオープンに失敗しました")
 		}
+		mod3.resampleCoef = float64(info.SampleRate) / float64(fs)
+		mod3.Start()
 		<-endCh
 	} else {
+		mod3.Start()
 		log.Print("info: 保存中...")
 		result := make([]float64, len(src))
 		i := 0
