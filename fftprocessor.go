@@ -15,12 +15,12 @@ type fftProcessor struct {
 }
 
 func newFFTProcessor(src []float64, width int, processor func([]complex128) []complex128) *fftProcessor {
-	if width < 1 {
-		width = 1
+	if width < 4 {
+		width = 4
 	}
 	return &fftProcessor{
 		src:       src,
-		width:     (width - 1) | 1,
+		width:     (width >> 1) << 1,
 		processor: processor,
 		output:    make(chan float64, 4096),
 	}
@@ -53,8 +53,7 @@ func (s *fftProcessor) Start() {
 			for i := 0; i < step; i++ {
 				s.output <- real(buffer[i]) + real(result[i])
 			}
-			s.output <- real(result[step])
-			buffer = result[step+1:]
+			buffer = result[step:]
 		}
 		close(s.output)
 	}()

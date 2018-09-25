@@ -18,10 +18,10 @@ func newFormantShifter(src []float64, width int, shift float64) *formantShifter 
 	maxPeakNum := 100
 	result := &formantShifter{}
 	result.fftProcessor = newFFTProcessor(src, width, func(spec []complex128) []complex128 {
-		if len(spec) <= 2 {
+		if len(spec) <= 4 {
 			return spec
 		}
-		n := ((len(spec) | 1) + 1) >> 1
+		n := len(spec) >> 1
 		peaks := findPeaks(spec[:n], maxPeakNum)
 		env := peaksToEnvelope(n, peaks)
 		for i := 0; i < n; i++ {
