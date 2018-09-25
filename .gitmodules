@@ -1,4 +1,3 @@
 [submodule "cmodules/world"]
 	path = cmodules/world
-	url = https://github.com/mmorise/World.git
-	ignore = dirty
+	url = https://github.com/but80/World.git

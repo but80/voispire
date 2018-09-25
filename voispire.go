@@ -80,7 +80,7 @@ func Demo(transpose, formant float64, infile, outfile string) error {
 	}
 
 	log.Print("info: 基本周波数を推定中...")
-	f0, spectro := world.Harvest(src, fs, framePeriod)
+	f0, spectro := world.Dio(src, fs, framePeriod)
 	_ = spectro
 
 	log.Print("info: 変換中...")
