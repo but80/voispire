@@ -170,7 +170,7 @@ func Parse(stdout io.Writer, args []string) (inv Invocation, cmd Command, err er
 		fmt.Fprintf(w, "  -%s\t\t%s\n", f.Name, f.Usage)
 	}
 
-  var mageInit bool
+	var mageInit bool
 	fs.BoolVar(&mageInit, "init", false, "create a starting template if no mage files exist")
 	var clean bool
 	fs.BoolVar(&clean, "clean", false, "clean out old generated binaries from CACHE_DIR")

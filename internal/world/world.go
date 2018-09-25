@@ -20,6 +20,25 @@ static void _write_doubleptr_array(double** p, int index, double* v) {
 	p[index] = v;
 }
 
+static void _write_doubleptr_array_elem(double** p, int i, int j, double v) {
+	p[i][j] = v;
+}
+
+static double** _alloc_double_array_array(int n, int m) {
+	double** result = _alloc_doubleptr_array(n);
+	for (int i=0; i<n; i++) {
+		result[i] = (double*)malloc(sizeof(double) * m);
+	}
+	return result;
+}
+
+static void _free_double_array_array(double** p, int n) {
+	for (int i=0; i<n; i++) {
+		free(p[i]);
+	}
+	free(p);
+}
+
 */
 import "C"
 import (
@@ -34,7 +53,10 @@ const (
 type cDoublePtr = *C.double
 
 const (
-	kLog2 = 0.69314718055994529
+	kMySafeGuardMinimum = 0.000000000001
+	kFloorF0            = 71.0
+	kCeilF0             = 800.0
+	kLog2               = 0.69314718055994529
 )
 
 func MyMaxInt(a, b int) int {
@@ -52,7 +74,44 @@ func MyMinInt(a, b int) int {
 }
 
 func GetSuitableFFTSize(sample int) int {
-	return int(math.Pow(2.0, math.Floor(math.Log(float64(sample)) / kLog2) + 1.0))
+	return int(math.Pow(2.0, math.Floor(math.Log(float64(sample))/kLog2)+1.0))
+}
+
+func GetSamplesForDIO(fs int, x_length int, frame_period float64) int {
+	return int(1000.0*float64(x_length)/float64(fs)/frame_period) + 1
+}
+
+func GetF0CandidatesAndScores(
+	boundary_f0_list []float64,
+	number_of_bands int, actual_fs float64, y_length int,
+	temporal_positions []float64, f0_length int,
+	y_spectrum []C.fft_complex, fft_size int, f0_floor, f0_ceil float64,
+	raw_f0_candidates, raw_f0_scores **C.double,
+) {
+	f0_candidate := make([]float64, f0_length)
+	f0_score := make([]float64, f0_length)
+
+	// Calculation of the acoustics events (zero-crossing)
+	for i := 0; i < number_of_bands; i++ {
+		C.CallGetF0CandidateFromRawEvent(
+			C.double(boundary_f0_list[i]),
+			C.double(actual_fs),
+			(*C.fft_complex)(&y_spectrum[0]),
+			C.int(y_length),
+			C.int(fft_size),
+			C.double(f0_floor),
+			C.double(f0_ceil),
+			cDoublePtr(&temporal_positions[0]),
+			C.int(f0_length),
+			cDoublePtr(&f0_score[0]),
+			cDoublePtr(&f0_candidate[0]),
+		)
+		for j := 0; j < f0_length; j++ {
+			// A way to avoid zero division
+			C._write_doubleptr_array_elem(raw_f0_scores, C.int(i), C.int(j), C.double(f0_score[j]/(f0_candidate[j]+kMySafeGuardMinimum)))
+			C._write_doubleptr_array_elem(raw_f0_candidates, C.int(i), C.int(j), C.double(f0_candidate[j]))
+		}
+	}
 }
 
 // DioGeneralBody estimates the F0 based on Distributed Inline-filter Operation.
@@ -72,14 +131,12 @@ func DioGeneralBody(
 	decimation_ratio := MyMaxInt(MyMinInt(speed, 12), 1)
 	y_length := 1 + int(x_length/decimation_ratio)
 	actual_fs := float64(fs) / float64(decimation_ratio)
-	fft_size := int(C.CallGetSuitableFFTSize(
-		C.int(y_length + (4 * int(1.0+actual_fs/boundary_f0_list[0]/2.0))),
-	))
+	fft_size := GetSuitableFFTSize(y_length + (4 * int(1.0+actual_fs/boundary_f0_list[0]/2.0)))
 
 	// Calculation of the spectrum used for the f0 estimation
 	y_spectrum := make([]C.fft_complex, fft_size)
 	C.CallGetSpectrumForEstimation(
-		(*C.double)(&x[0]),
+		cDoublePtr(&x[0]),
 		C.int(x_length),
 		C.int(y_length),
 		C.double(actual_fs),
@@ -88,42 +145,28 @@ func DioGeneralBody(
 		(*C.fft_complex)(&y_spectrum[0]),
 	)
 
-	f0_length := int(C.CallGetSamplesForDIO(
-		C.int(fs),
-		C.int(x_length),
-		C.double(frame_period),
-	))
+	f0_length := GetSamplesForDIO(fs, x_length, frame_period)
 
-	f0_candidates_go := make([][]float64, number_of_bands)
-	f0_scores_go := make([][]float64, number_of_bands)
-	f0_candidates := make([]*C.double, number_of_bands)
-	f0_scores := make([]*C.double, number_of_bands)
-	for i := 0; i < number_of_bands; i++ {
-		f0_candidate := make([]float64, f0_length)
-		f0_score := make([]float64, f0_length)
-		f0_candidates_go[i] = f0_candidate
-		f0_scores_go[i] = f0_score
-		f0_candidates[i] = (*C.double)(&f0_candidate[0])
-		f0_scores[i] = (*C.double)(&f0_score[0])
-	}
+	f0_candidates := C._alloc_double_array_array(C.int(number_of_bands), C.int(f0_length))
+	f0_scores := C._alloc_double_array_array(C.int(number_of_bands), C.int(f0_length))
 
 	for i := 0; i < f0_length; i++ {
 		temporal_positions[i] = float64(i) * frame_period / 1000.0
 	}
 
-	C.CallGetF0CandidatesAndScores(
-		(*C.double)(&boundary_f0_list[0]),
-		C.int(number_of_bands),
-		C.double(actual_fs),
-		C.int(y_length),
-		(*C.double)(&temporal_positions[0]),
-		C.int(f0_length),
-		(*C.fft_complex)(&y_spectrum[0]),
-		C.int(fft_size),
-		C.double(f0_floor),
-		C.double(f0_ceil),
-		(**C.double)(&f0_candidates[0]),
-		(**C.double)(&f0_scores[0]),
+	GetF0CandidatesAndScores(
+		boundary_f0_list,
+		number_of_bands,
+		actual_fs,
+		y_length,
+		temporal_positions,
+		f0_length,
+		y_spectrum,
+		fft_size,
+		f0_floor,
+		f0_ceil,
+		f0_candidates,
+		f0_scores,
 	)
 
 	// Selection of the best value based on fundamental-ness.
@@ -131,10 +174,10 @@ func DioGeneralBody(
 	best_f0_contour := make([]float64, f0_length)
 	C.CallGetBestF0Contour(
 		C.int(f0_length),
-		(**C.double)(&f0_candidates[0]),
-		(**C.double)(&f0_scores[0]),
+		f0_candidates,
+		f0_scores,
 		C.int(number_of_bands),
-		(*C.double)(&best_f0_contour[0]),
+		cDoublePtr(&best_f0_contour[0]),
 	)
 
 	// Postprocessing to find the best f0-contour.
@@ -142,13 +185,47 @@ func DioGeneralBody(
 		C.double(frame_period),
 		C.int(number_of_bands),
 		C.int(fs),
-		(**C.double)(&f0_candidates[0]),
-		(*C.double)(&best_f0_contour[0]),
+		f0_candidates,
+		cDoublePtr(&best_f0_contour[0]),
 		C.int(f0_length),
 		C.double(f0_floor),
 		C.double(allowed_range),
-		(*C.double)(&f0[0]),
+		cDoublePtr(&f0[0]),
 	)
+
+	C._free_double_array_array(f0_candidates, C.int(number_of_bands))
+	C._free_double_array_array(f0_scores, C.int(number_of_bands))
+}
+
+type DioOption struct {
+	f0_floor           float64
+	f0_ceil            float64
+	channels_in_octave float64
+	frame_period       float64 // msec
+	speed              int     // (1, 2, ..., 12)
+	allowed_range      float64 // Threshold used for fixing the F0 contour.
+}
+
+func InitializeDioOption() *DioOption {
+	option := &DioOption{}
+
+	// You can change default parameters.
+	option.channels_in_octave = 2.0
+	option.f0_ceil = kCeilF0
+	option.f0_floor = kFloorF0
+	option.frame_period = 5
+
+	// You can use the value from 1 to 12.
+	// Default value 11 is for the fs of 44.1 kHz.
+	// The lower value you use, the better performance you can obtain.
+	option.speed = 1
+
+	// You can give a positive real number as the threshold.
+	// The most strict value is 0, and there is no upper limit.
+	// On the other hand, I think that the value from 0.02 to 0.2 is reasonable.
+	option.allowed_range = 0.1
+
+	return option
 }
 
 // Dio は、波形 x の基本周波数を framePeriod 秒間隔で推定します。
@@ -157,22 +234,10 @@ func Dio(x []float64, fs int, framePeriod float64) ([]float64, [][]float64) {
 	m := n / int(math.Floor(float64(fs)*framePeriod))
 	tmppos := make([]float64, m)
 	f0 := make([]float64, m)
-	dopts := &C.DioOption{}
-	C.InitializeDioOption(dopts)
-	dopts.frame_period = C.double(framePeriod * 1000.0)
-	C.CallDioGeneralBody(
-		cDoublePtr(&x[0]),
-		C.int(n),
-		C.int(fs),
-		C.double(dopts.frame_period),
-		C.double(dopts.f0_floor),
-		C.double(dopts.f0_ceil),
-		C.double(dopts.channels_in_octave),
-		C.int(dopts.speed),
-		C.double(dopts.allowed_range),
-		cDoublePtr(&tmppos[0]),
-		cDoublePtr(&f0[0]),
-	)
+	dopts := InitializeDioOption()
+	dopts.frame_period = framePeriod * 1000.0
+	DioGeneralBody(x, n, fs, dopts.frame_period, dopts.f0_floor, dopts.f0_ceil,
+		dopts.channels_in_octave, dopts.speed, dopts.allowed_range, tmppos, f0)
 
 	if useStoneMask {
 		f0r := make([]float64, m)
