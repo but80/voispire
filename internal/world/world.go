@@ -6,7 +6,17 @@ package world
 #include "world/dio.h"
 #include "world/stonemask.h"
 #include "world/cheaptrick.h"
+#include "world/matlabfunctions.h"
+#include "world/fft.h"
 #include <stdlib.h>
+
+static double _read_fft_complex_array(const fft_complex* p, int index, int real_of_imag) {
+	return p[index][real_of_imag];
+}
+
+static void _write_fft_complex_array(fft_complex* p, int index, int real_of_imag, double value) {
+	p[index][real_of_imag] = value;
+}
 
 static double** _alloc_doubleptr_array(int size) {
 	return (double**)malloc(sizeof(double*) * size);
@@ -114,6 +124,98 @@ func GetF0CandidatesAndScores(
 	}
 }
 
+func DesignLowCutFilter(N, fft_size int, low_cut_filter []float64) {
+	for i := 1; i <= N; i++ {
+		low_cut_filter[i-1] = 0.5 - 0.5*math.Cos(float64(i)*2.0*math.Pi/float64(N+1))
+	}
+	for i := N; i < fft_size; i++ {
+		low_cut_filter[i] = 0.0
+	}
+	sum_of_amplitude := 0.0
+	for i := 0; i < N; i++ {
+		sum_of_amplitude += low_cut_filter[i]
+	}
+	for i := 0; i < N; i++ {
+		low_cut_filter[i] = -low_cut_filter[i] / sum_of_amplitude
+	}
+	for i := 0; i < (N-1)/2; i++ {
+		low_cut_filter[fft_size-(N-1)/2+i] = low_cut_filter[i]
+	}
+	for i := 0; i < N; i++ {
+		low_cut_filter[i] = low_cut_filter[i+(N-1)/2]
+	}
+	low_cut_filter[0] += 1.0
+}
+
+func GetSpectrumForEstimation(
+	x []float64, x_length int, y_length int, actual_fs float64,
+	fft_size int, decimation_ratio int, y_spectrum []C.fft_complex,
+) {
+	y := make([]float64, fft_size)
+
+	// Initialization
+	for i := 0; i < fft_size; i++ {
+		y[i] = 0.0
+	}
+
+	// Downsampling
+	if decimation_ratio != 1 {
+		C.decimate(
+			(*C.double)(&x[0]),
+			C.int(x_length),
+			C.int(decimation_ratio),
+			(*C.double)(&y[0]),
+		)
+	} else {
+		for i := 0; i < x_length; i++ {
+			y[i] = x[i]
+		}
+	}
+
+	// Removal of the DC component (y = y - mean value of y)
+	mean_y := 0.0
+	for i := 0; i < y_length; i++ {
+		mean_y += y[i]
+	}
+	mean_y /= float64(y_length)
+	for i := 0; i < y_length; i++ {
+		y[i] -= mean_y
+	}
+	for i := y_length; i < fft_size; i++ {
+		y[i] = 0.0
+	}
+
+	forwardFFT := C.fft_plan_dft_r2c_1d(
+		C.int(fft_size),
+		(*C.double)(&y[0]),
+		&y_spectrum[0],
+		C.FFT_ESTIMATE,
+	)
+	C.fft_execute(forwardFFT)
+
+	// Low cut filtering (from 0.1.4)
+	cutoff_in_sample := int(C.matlab_round(C.double(actual_fs / 50.0))) // Cutoff is 50.0 Hz
+	DesignLowCutFilter(cutoff_in_sample*2+1, fft_size, y)
+
+	filter_spectrum := make([]C.fft_complex, fft_size)
+	forwardFFT.c_out = &filter_spectrum[0]
+	C.fft_execute(forwardFFT)
+
+	for i := 0; i <= fft_size/2; i++ {
+		// Complex number multiplications.
+		s0 := float64(C._read_fft_complex_array(&y_spectrum[0], C.int(i), C.int(0)))
+		s1 := float64(C._read_fft_complex_array(&y_spectrum[0], C.int(i), C.int(1)))
+		f0 := float64(C._read_fft_complex_array(&filter_spectrum[0], C.int(i), C.int(0)))
+		f1 := float64(C._read_fft_complex_array(&filter_spectrum[0], C.int(i), C.int(1)))
+		C._write_fft_complex_array(&y_spectrum[0], C.int(i), C.int(0), C.double(s0*f0-s1*f1))
+		C._write_fft_complex_array(&y_spectrum[0], C.int(i), C.int(1), C.double(s0*f1+s1*f0))
+	}
+
+	C.fft_destroy_plan(forwardFFT)
+	// delete[] y;
+	// delete[] filter_spectrum;
+}
+
 // DioGeneralBody estimates the F0 based on Distributed Inline-filter Operation.
 func DioGeneralBody(
 	x []float64, x_length int, fs int,
@@ -135,15 +237,7 @@ func DioGeneralBody(
 
 	// Calculation of the spectrum used for the f0 estimation
 	y_spectrum := make([]C.fft_complex, fft_size)
-	C.CallGetSpectrumForEstimation(
-		cDoublePtr(&x[0]),
-		C.int(x_length),
-		C.int(y_length),
-		C.double(actual_fs),
-		C.int(fft_size),
-		C.int(decimation_ratio),
-		(*C.fft_complex)(&y_spectrum[0]),
-	)
+	GetSpectrumForEstimation(x, x_length, y_length, actual_fs, fft_size, decimation_ratio, y_spectrum)
 
 	f0_length := GetSamplesForDIO(fs, x_length, frame_period)
 
