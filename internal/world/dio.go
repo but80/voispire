@@ -62,31 +62,6 @@ const (
 
 type cDoublePtr = *C.double
 
-const (
-	kMySafeGuardMinimum = 0.000000000001
-	kFloorF0            = 71.0
-	kCeilF0             = 800.0
-	kLog2               = 0.69314718055994529
-)
-
-func MyMaxInt(a, b int) int {
-	if a < b {
-		return b
-	}
-	return a
-}
-
-func MyMinInt(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func GetSuitableFFTSize(sample int) int {
-	return int(math.Pow(2.0, math.Floor(math.Log(float64(sample))/kLog2)+1.0))
-}
-
 func GetSamplesForDIO(fs int, x_length int, frame_period float64) int {
 	return int(1000.0*float64(x_length)/float64(fs)/frame_period) + 1
 }
