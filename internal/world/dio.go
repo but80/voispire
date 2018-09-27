@@ -7,16 +7,7 @@ package world
 #include "world/stonemask.h"
 #include "world/cheaptrick.h"
 #include "world/matlabfunctions.h"
-#include "world/fft.h"
 #include <stdlib.h>
-
-static double _read_fft_complex_array(const fft_complex* p, int index, int real_of_imag) {
-	return p[index][real_of_imag];
-}
-
-static void _write_fft_complex_array(fft_complex* p, int index, int real_of_imag, double value) {
-	p[index][real_of_imag] = value;
-}
 
 static double** _alloc_doubleptr_array(int size) {
 	return (double**)malloc(sizeof(double*) * size);
@@ -53,6 +44,7 @@ static void _free_double_array_array(double** p, int n) {
 import "C"
 import (
 	"math"
+	"unsafe"
 )
 
 const (
@@ -60,7 +52,13 @@ const (
 	useCheapTrick = false
 )
 
-type cDoublePtr = *C.double
+func toDoublePtr(a []float64) *C.double {
+	return (*C.double)(&a[0])
+}
+
+func toFFTComplexPtr(a []complex128) *C.fft_complex {
+	return (*C.fft_complex)(unsafe.Pointer(&a[0]))
+}
 
 func GetSamplesForDIO(fs int, x_length int, frame_period float64) int {
 	return int(1000.0*float64(x_length)/float64(fs)/frame_period) + 1
@@ -70,7 +68,7 @@ func GetF0CandidatesAndScores(
 	boundary_f0_list []float64,
 	number_of_bands int, actual_fs float64, y_length int,
 	temporal_positions []float64, f0_length int,
-	y_spectrum []C.fft_complex, fft_size int, f0_floor, f0_ceil float64,
+	y_spectrum []complex128, fft_size int, f0_floor, f0_ceil float64,
 	raw_f0_candidates, raw_f0_scores **C.double,
 ) {
 	f0_candidate := make([]float64, f0_length)
@@ -81,15 +79,15 @@ func GetF0CandidatesAndScores(
 		C.CallGetF0CandidateFromRawEvent(
 			C.double(boundary_f0_list[i]),
 			C.double(actual_fs),
-			(*C.fft_complex)(&y_spectrum[0]),
+			toFFTComplexPtr(y_spectrum),
 			C.int(y_length),
 			C.int(fft_size),
 			C.double(f0_floor),
 			C.double(f0_ceil),
-			cDoublePtr(&temporal_positions[0]),
+			toDoublePtr(temporal_positions),
 			C.int(f0_length),
-			cDoublePtr(&f0_score[0]),
-			cDoublePtr(&f0_candidate[0]),
+			toDoublePtr(f0_score),
+			toDoublePtr(f0_candidate),
 		)
 		for j := 0; j < f0_length; j++ {
 			// A way to avoid zero division
@@ -124,27 +122,20 @@ func DesignLowCutFilter(N, fft_size int, low_cut_filter []float64) {
 
 func GetSpectrumForEstimation(
 	x []float64, x_length int, y_length int, actual_fs float64,
-	fft_size int, decimation_ratio int, y_spectrum []C.fft_complex,
+	fft_size int, decimation_ratio int, y_spectrum []complex128,
 ) {
 	y := make([]float64, fft_size)
-
-	// Initialization
-	for i := 0; i < fft_size; i++ {
-		y[i] = 0.0
-	}
 
 	// Downsampling
 	if decimation_ratio != 1 {
 		C.decimate(
-			(*C.double)(&x[0]),
+			toDoublePtr(x),
 			C.int(x_length),
 			C.int(decimation_ratio),
-			(*C.double)(&y[0]),
+			toDoublePtr(y),
 		)
 	} else {
-		for i := 0; i < x_length; i++ {
-			y[i] = x[i]
-		}
+		copy(y, x)
 	}
 
 	// Removal of the DC component (y = y - mean value of y)
@@ -162,8 +153,8 @@ func GetSpectrumForEstimation(
 
 	forwardFFT := C.fft_plan_dft_r2c_1d(
 		C.int(fft_size),
-		(*C.double)(&y[0]),
-		&y_spectrum[0],
+		toDoublePtr(y),
+		toFFTComplexPtr(y_spectrum),
 		C.FFT_ESTIMATE,
 	)
 	C.fft_execute(forwardFFT)
@@ -172,18 +163,16 @@ func GetSpectrumForEstimation(
 	cutoff_in_sample := int(C.matlab_round(C.double(actual_fs / 50.0))) // Cutoff is 50.0 Hz
 	DesignLowCutFilter(cutoff_in_sample*2+1, fft_size, y)
 
-	filter_spectrum := make([]C.fft_complex, fft_size)
-	forwardFFT.c_out = &filter_spectrum[0]
+	filter_spectrum := make([]complex128, fft_size)
+	forwardFFT.c_out = toFFTComplexPtr(filter_spectrum)
 	C.fft_execute(forwardFFT)
 
 	for i := 0; i <= fft_size/2; i++ {
 		// Complex number multiplications.
-		s0 := float64(C._read_fft_complex_array(&y_spectrum[0], C.int(i), C.int(0)))
-		s1 := float64(C._read_fft_complex_array(&y_spectrum[0], C.int(i), C.int(1)))
-		f0 := float64(C._read_fft_complex_array(&filter_spectrum[0], C.int(i), C.int(0)))
-		f1 := float64(C._read_fft_complex_array(&filter_spectrum[0], C.int(i), C.int(1)))
-		C._write_fft_complex_array(&y_spectrum[0], C.int(i), C.int(0), C.double(s0*f0-s1*f1))
-		C._write_fft_complex_array(&y_spectrum[0], C.int(i), C.int(1), C.double(s0*f1+s1*f0))
+		y_spectrum[i] = complex(
+			real(y_spectrum[i])*real(filter_spectrum[i])-imag(y_spectrum[i])*imag(filter_spectrum[i]),
+			real(y_spectrum[i])*imag(filter_spectrum[i])+imag(y_spectrum[i])*real(filter_spectrum[i]),
+		)
 	}
 
 	C.fft_destroy_plan(forwardFFT)
@@ -211,7 +200,7 @@ func DioGeneralBody(
 	fft_size := GetSuitableFFTSize(y_length + (4 * int(1.0+actual_fs/boundary_f0_list[0]/2.0)))
 
 	// Calculation of the spectrum used for the f0 estimation
-	y_spectrum := make([]C.fft_complex, fft_size)
+	y_spectrum := make([]complex128, fft_size)
 	GetSpectrumForEstimation(x, x_length, y_length, actual_fs, fft_size, decimation_ratio, y_spectrum)
 
 	f0_length := GetSamplesForDIO(fs, x_length, frame_period)
@@ -224,18 +213,8 @@ func DioGeneralBody(
 	}
 
 	GetF0CandidatesAndScores(
-		boundary_f0_list,
-		number_of_bands,
-		actual_fs,
-		y_length,
-		temporal_positions,
-		f0_length,
-		y_spectrum,
-		fft_size,
-		f0_floor,
-		f0_ceil,
-		f0_candidates,
-		f0_scores,
+		boundary_f0_list, number_of_bands, actual_fs, y_length, temporal_positions,
+		f0_length, y_spectrum, fft_size, f0_floor, f0_ceil, f0_candidates, f0_scores,
 	)
 
 	// Selection of the best value based on fundamental-ness.
@@ -246,7 +225,7 @@ func DioGeneralBody(
 		f0_candidates,
 		f0_scores,
 		C.int(number_of_bands),
-		cDoublePtr(&best_f0_contour[0]),
+		toDoublePtr(best_f0_contour),
 	)
 
 	// Postprocessing to find the best f0-contour.
@@ -255,11 +234,11 @@ func DioGeneralBody(
 		C.int(number_of_bands),
 		C.int(fs),
 		f0_candidates,
-		cDoublePtr(&best_f0_contour[0]),
+		toDoublePtr(best_f0_contour),
 		C.int(f0_length),
 		C.double(f0_floor),
 		C.double(allowed_range),
-		cDoublePtr(&f0[0]),
+		toDoublePtr(f0),
 	)
 
 	C._free_double_array_array(f0_candidates, C.int(number_of_bands))
@@ -311,13 +290,13 @@ func Dio(x []float64, fs int, framePeriod float64) ([]float64, [][]float64) {
 	if useStoneMask {
 		f0r := make([]float64, m)
 		C.StoneMask(
-			cDoublePtr(&x[0]),
+			toDoublePtr(x),
 			C.int(n),
 			C.int(fs),
-			cDoublePtr(&tmppos[0]),
-			cDoublePtr(&f0[0]),
+			toDoublePtr(tmppos),
+			toDoublePtr(f0),
 			C.int(m),
-			cDoublePtr(&f0r[0]),
+			toDoublePtr(f0r),
 		)
 		f0 = f0r
 	}
@@ -332,14 +311,14 @@ func Dio(x []float64, fs int, framePeriod float64) ([]float64, [][]float64) {
 		for i := range spectro {
 			s := make([]float64, int(copts.fft_size))
 			spectro[i] = s
-			C._write_doubleptr_array(cspectro, C.int(i), cDoublePtr(&s[0]))
+			C._write_doubleptr_array(cspectro, C.int(i), toDoublePtr(s))
 		}
 		C.CheapTrick(
-			cDoublePtr(&x[0]),
+			toDoublePtr(x),
 			C.int(n),
 			C.int(fs),
-			cDoublePtr(&tmppos[0]),
-			cDoublePtr(&f0[0]),
+			toDoublePtr(tmppos),
+			toDoublePtr(f0),
 			C.int(m),
 			copts,
 			cspectro,

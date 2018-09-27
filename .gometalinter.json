@@ -2,5 +2,5 @@
   "Enable": ["vet", "golint", "goimports", "gocyclo"],
   "Cyclo": 15,
   "Vendor": true,
-  "Skip": ["vendor"]
+  "Skip": ["vendor", "internal/world"]
 }
