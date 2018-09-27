@@ -128,12 +128,7 @@ func GetSpectrumForEstimation(
 
 	// Downsampling
 	if decimation_ratio != 1 {
-		C.decimate(
-			toDoublePtr(x),
-			C.int(x_length),
-			C.int(decimation_ratio),
-			toDoublePtr(y),
-		)
+		decimate(x, x_length, decimation_ratio, y)
 	} else {
 		copy(y, x)
 	}
