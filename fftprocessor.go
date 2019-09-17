@@ -32,6 +32,7 @@ func (s *fftProcessor) Start() {
 		step := s.width >> 1
 		buffer := make([]complex128, step)
 		for i := 0; i < len(s.src); i += step {
+			// log.Printf("debug: fftProcessor %d", i)
 			j := i + s.width
 			var src []float64
 			if j <= len(s.src) {

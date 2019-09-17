@@ -34,6 +34,7 @@ func (s *stretcher) Start() {
 		srcPhase := .0
 		dstPhase := .0
 		result := []float64{}
+		msg := 0
 		for shape := range s.input {
 			history.Rotate(shape)
 			freq := history.Freq()
@@ -48,6 +49,7 @@ func (s *stretcher) Start() {
 			}
 			if s.minChunkLen <= len(result) {
 				s.output <- buffer.MakeShape(result)
+				msg++
 				result = []float64{}
 			}
 			for 1.0 <= dstPhase {
@@ -56,7 +58,9 @@ func (s *stretcher) Start() {
 		}
 		if 0 < len(result) {
 			s.output <- buffer.MakeShape(result)
+			msg++
 		}
+		log.Printf("debug: stretcher %d messages", msg)
 		close(s.output)
 	}()
 }

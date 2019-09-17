@@ -35,6 +35,7 @@ func (s *f0Splitter) Start() {
 		phase := .0
 		lastFreq := 440.0
 		buf := []float64{}
+		msg := 0
 		for v := range s.input {
 			i := len(buf)
 			buf = append(buf, v)
@@ -49,11 +50,13 @@ func (s *f0Splitter) Start() {
 					phase -= 1.0
 				}
 				s.output <- buffer.MakeShapeTrimmed(buf, iBegin, i)
+				msg++
 				iBegin = i
 			}
 			lastFreq = freq
 			t += dt
 		}
+		log.Printf("debug: f0Splitter %d messages", msg)
 		close(s.output)
 	}()
 }

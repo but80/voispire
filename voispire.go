@@ -15,11 +15,14 @@ import (
 func join(input chan buffer.Shape) chan float64 {
 	out := make(chan float64, 4096)
 	go func() {
+		msg := 0
 		for s := range input {
 			for _, v := range s.Data() {
 				out <- v
+				msg++
 			}
 		}
+		log.Printf("debug: join: %d messages", msg)
 		close(out)
 	}()
 	return out
@@ -78,6 +81,7 @@ func Demo(transpose, formant float64, rate int, infile, outfile string) error {
 	if err != nil {
 		return errors.Wrap(err, "音声ファイルの読み込みに失敗しました")
 	}
+	log.Printf("debug: IN: %d samples, fs=%d", len(src), fs)
 
 	log.Print("info: 基本周波数を推定中...")
 	f0, spectro := world.Dio(src, fs, framePeriod)
@@ -112,17 +116,16 @@ func Demo(transpose, formant float64, rate int, infile, outfile string) error {
 		<-endCh
 	} else {
 		mod3.Start()
-		log.Print("info: 保存中...")
 		result := []float64{}
-		i := 0
-		for i < len(result) {
+		for {
 			v, ok := <-outCh
 			if !ok {
 				break
 			}
 			result = append(result, v)
-			i++
 		}
+		log.Printf("debug: OUT: %d samples, fs=%d", len(result), fsOut)
+		log.Print("info: 保存中...")
 		wav.Save(outfile, fsOut, result)
 		log.Print("info: 完了")
 	}
