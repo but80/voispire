@@ -8,9 +8,6 @@ import (
 	"github.com/comail/colog"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
-
-	// Go >= 1.10 required
-	_ "github.com/theckman/goconstraint/go1.10/gte"
 )
 
 var version = "unknown"

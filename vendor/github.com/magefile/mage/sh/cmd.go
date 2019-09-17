@@ -76,7 +76,7 @@ func Output(cmd string, args ...string) (string, error) {
 	return strings.TrimSuffix(buf.String(), "\n"), err
 }
 
-// OutputWith is like RunWith, ubt returns what is written to stdout.
+// OutputWith is like RunWith, but returns what is written to stdout.
 func OutputWith(env map[string]string, cmd string, args ...string) (string, error) {
 	buf := &bytes.Buffer{}
 	_, err := Exec(env, buf, os.Stderr, cmd, args...)
@@ -128,10 +128,16 @@ func run(env map[string]string, stdout, stderr io.Writer, cmd string, args ...st
 	c.Stdin = os.Stdin
 	log.Println("exec:", cmd, strings.Join(args, " "))
 	err = c.Run()
-	return cmdRan(err), ExitStatus(err), err
+	return CmdRan(err), ExitStatus(err), err
 }
 
-func cmdRan(err error) bool {
+// CmdRan examines the error to determine if it was generated as a result of a
+// command running via os/exec.Command.  If the error is nil, or the command ran
+// (even if it exited with a non-zero exit code), CmdRan reports true.  If the
+// error is an unrecognized type, or it is an error from exec.Command that says
+// the command failed to run (usually due to the command not existing or not
+// being executable), it reports false.
+func CmdRan(err error) bool {
 	if err == nil {
 		return true
 	}

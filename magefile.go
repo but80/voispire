@@ -10,6 +10,11 @@ import (
 	"github.com/mattn/go-zglob"
 )
 
+func init() {
+	os.Setenv("GOFLAGS", "-mod=vendor")
+	os.Setenv("GO111MODULE", "on")
+}
+
 func runVWithArgs(cmd string, args ...string) error {
 	envArgs, err := shellwords.Parse(os.Getenv("ARGS"))
 	if err != nil {
@@ -25,6 +30,9 @@ func Fmt() error {
 		return err
 	}
 	for _, file := range files {
+		if ok, _ := zglob.Match("vendor/**/*", file); ok {
+			continue
+		}
 		if err := sh.RunV("goimports", "-w", file); err != nil {
 			return err
 		}
@@ -34,12 +42,17 @@ func Fmt() error {
 
 // Check coding style
 func Lint() error {
-	return sh.RunV("gometalinter", "--config=.gometalinter.json", "./...")
+	return sh.RunV("golangci-lint", "run")
 }
 
 // Run test
 func Test() error {
 	return sh.RunV("go", "test", "./...")
+}
+
+// Build program
+func Build() error {
+	return runVWithArgs("go", "build", "./cmd/voispire")
 }
 
 // Run program

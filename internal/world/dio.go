@@ -1,7 +1,7 @@
 package world
 
 /*
-#cgo LDFLAGS: -L../../cmodules/world/build -lworld -lstdc++
+#cgo LDFLAGS: -L../../cmodules/world/build -lworld -lstdc++ -lm
 #cgo CFLAGS: -I../../cmodules/world/src
 #include "world/dio.h"
 #include "world/stonemask.h"
@@ -79,7 +79,7 @@ func GetF0CandidatesAndScores(
 		C.CallGetF0CandidateFromRawEvent(
 			C.double(boundary_f0_list[i]),
 			C.double(actual_fs),
-			toFFTComplexPtr(y_spectrum),
+			(*[2]C.double)(toFFTComplexPtr(y_spectrum)),
 			C.int(y_length),
 			C.int(fft_size),
 			C.double(f0_floor),

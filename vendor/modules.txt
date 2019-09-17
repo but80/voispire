@@ -1,0 +1,35 @@
+# github.com/comail/colog v0.0.0-20160416085026-fba8e7b1f46c
+github.com/comail/colog
+# github.com/davecgh/go-spew v1.1.1
+github.com/davecgh/go-spew/spew
+# github.com/go-audio/audio v0.0.0-20180206231410-b697a35b5608
+github.com/go-audio/audio
+# github.com/go-audio/wav v0.0.0-20180801233548-87c13ac40f03
+github.com/go-audio/wav
+# github.com/gordonklaus/portaudio v0.0.0-20170806144149-e66c30a9c4ca
+github.com/gordonklaus/portaudio
+# github.com/magefile/mage v1.9.0
+github.com/magefile/mage/sh
+github.com/magefile/mage/mg
+# github.com/mattetti/audio v0.0.0-20180403010354-b7bc1ebaf222
+github.com/mattetti/audio/riff
+# github.com/mattn/go-shellwords v1.0.3
+github.com/mattn/go-shellwords
+# github.com/mattn/go-zglob v0.0.1
+github.com/mattn/go-zglob
+github.com/mattn/go-zglob/fastwalk
+# github.com/mjibson/go-dsp v0.0.0-20180508042940-11479a337f12
+github.com/mjibson/go-dsp/fft
+github.com/mjibson/go-dsp/window
+github.com/mjibson/go-dsp/wav
+github.com/mjibson/go-dsp/dsputils
+# github.com/pkg/errors v0.8.0
+github.com/pkg/errors
+# github.com/pmezard/go-difflib v1.0.0
+github.com/pmezard/go-difflib/difflib
+# github.com/stretchr/testify v1.2.2
+github.com/stretchr/testify/assert
+# github.com/urfave/cli v1.20.0
+github.com/urfave/cli
+# github.com/xlab/closer v0.0.0-20161113214103-89cd22812c4f
+github.com/xlab/closer
