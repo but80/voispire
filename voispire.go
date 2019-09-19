@@ -7,7 +7,7 @@ import (
 	"github.com/but80/voispire/internal/buffer"
 	"github.com/but80/voispire/internal/wav"
 	"github.com/but80/voispire/internal/world"
-	"github.com/gordonklaus/portaudio"
+	"github.com/hajimehoshi/oto"
 	"github.com/pkg/errors"
 	"github.com/xlab/closer"
 )
@@ -28,47 +28,29 @@ func join(input chan buffer.Shape) chan float64 {
 	return out
 }
 
-func render(in chan float64) (chan struct{}, *portaudio.StreamInfo, error) {
-	portaudio.Initialize()
+func render(rate int, in chan float64) (chan struct{}, error) {
+	ctx, err := oto.NewContext(rate, 1, 2, 4096)
+	if err != nil {
+		return nil, err
+	}
 	closer.Bind(func() {
-		portaudio.Terminate()
+		ctx.Close()
 	})
+	player := ctx.NewPlayer()
 
-	hostapi, err := portaudio.DefaultHostApi()
-	if err != nil {
-		return nil, nil, err
-	}
-	log.Printf("info: Audio device: %s\n", hostapi.DefaultOutputDevice.Name)
-	params := portaudio.HighLatencyParameters(nil, hostapi.DefaultOutputDevice)
 	endCh := make(chan struct{})
-	stream, err := portaudio.OpenStream(params, func(out [][]float32) {
-		for i := range out[0] {
-			select {
-			case v, ok := <-in:
-				if !ok {
-					if endCh != nil {
-						close(endCh)
-						endCh = nil
-					}
-					break
-				}
-				out[0][i] = float32(v)
-				out[1][i] = float32(v)
-			default:
-				break
-			}
+	go func() {
+		var buf = make([]byte, 2)
+		for v := range in {
+			d := uint16(int16(math.Round(32767.0 * v)))
+			buf[0] = byte(d & 255)
+			buf[1] = byte(d >> 8)
+			_, _ = player.Write(buf)
 		}
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-	log.Printf("info: Sample rate: %f\n", stream.Info().SampleRate)
-	log.Printf("info: Output latency: %s\n", stream.Info().OutputLatency.String())
-
-	if err := stream.Start(); err != nil {
-		return nil, nil, err
-	}
-	return endCh, stream.Info(), nil
+		close(endCh)
+		endCh = nil
+	}()
+	return endCh, nil
 }
 
 const (
@@ -107,11 +89,12 @@ func Demo(transpose, formant float64, rate int, infile, outfile string) error {
 	mod2.Start()
 
 	if outfile == "" {
-		endCh, info, err := render(outCh)
+		rate := 44100
+		endCh, err := render(rate, outCh)
 		if err != nil {
 			return errors.Wrap(err, "出力ストリームのオープンに失敗しました")
 		}
-		mod3.resampleCoef = float64(info.SampleRate) / float64(fs)
+		mod3.resampleCoef = float64(rate) / float64(fs)
 		mod3.Start()
 		<-endCh
 	} else {

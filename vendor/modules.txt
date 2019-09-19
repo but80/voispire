@@ -6,8 +6,9 @@ github.com/davecgh/go-spew/spew
 github.com/go-audio/audio
 # github.com/go-audio/wav v0.0.0-20180801233548-87c13ac40f03
 github.com/go-audio/wav
-# github.com/gordonklaus/portaudio v0.0.0-20170806144149-e66c30a9c4ca
-github.com/gordonklaus/portaudio
+# github.com/hajimehoshi/oto v0.4.0
+github.com/hajimehoshi/oto
+github.com/hajimehoshi/oto/internal/mux
 # github.com/magefile/mage v1.9.0
 github.com/magefile/mage/sh
 github.com/magefile/mage/mg
@@ -33,3 +34,28 @@ github.com/stretchr/testify/assert
 github.com/urfave/cli
 # github.com/xlab/closer v0.0.0-20161113214103-89cd22812c4f
 github.com/xlab/closer
+# golang.org/x/exp v0.0.0-20190306152737-a1d7652674e8
+golang.org/x/exp/shiny/driver/gldriver
+golang.org/x/exp/shiny/screen
+golang.org/x/exp/shiny/driver/internal/drawer
+golang.org/x/exp/shiny/driver/internal/errscreen
+golang.org/x/exp/shiny/driver/internal/event
+golang.org/x/exp/shiny/driver/internal/lifecycler
+golang.org/x/exp/shiny/driver/internal/win32
+golang.org/x/exp/shiny/driver/internal/x11key
+# golang.org/x/image v0.0.0-20190227222117-0694c2d4d067
+golang.org/x/image/math/f64
+# golang.org/x/mobile v0.0.0-20190415191353-3e0bab5405d6
+golang.org/x/mobile/app
+golang.org/x/mobile/app/internal/callfn
+golang.org/x/mobile/event/key
+golang.org/x/mobile/event/lifecycle
+golang.org/x/mobile/event/mouse
+golang.org/x/mobile/event/paint
+golang.org/x/mobile/event/size
+golang.org/x/mobile/event/touch
+golang.org/x/mobile/geom
+golang.org/x/mobile/gl
+golang.org/x/mobile/internal/mobileinit
+# golang.org/x/sys v0.0.0-20190429190828-d89cdac9e872
+golang.org/x/sys/windows

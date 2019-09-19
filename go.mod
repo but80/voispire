@@ -7,7 +7,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-audio/audio v0.0.0-20180206231410-b697a35b5608 // indirect
 	github.com/go-audio/wav v0.0.0-20180801233548-87c13ac40f03
-	github.com/gordonklaus/portaudio v0.0.0-20170806144149-e66c30a9c4ca
+	github.com/hajimehoshi/oto v0.4.0
 	github.com/magefile/mage v1.9.0
 	github.com/mattetti/audio v0.0.0-20180403010354-b7bc1ebaf222 // indirect
 	github.com/mattn/go-shellwords v1.0.3
