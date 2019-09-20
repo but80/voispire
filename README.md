@@ -33,6 +33,28 @@ go run cmd/voispire/main.go -t 6 -f 3 input.wav output.wav
 go run cmd/voispire/main.go -t 6 -f 3 input.wav
 ```
 
+## ビルド手順
+
+### macOS / Linux
+
+```bash
+cd cmodules/world
+make
+cd ../..
+go run mage.go build
+./voispire -h
+```
+
+### Windows + MinGW
+
+```batch
+cd cmodules\world
+make
+cd ..\..
+go run mage.go build
+voispire.exe -h
+```
+
 ## 技術情報
 
 ### ピッチシフト
