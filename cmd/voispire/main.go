@@ -40,6 +40,11 @@ func main() {
 			Name:  "formant, f",
 			Usage: "フォルマントシフト量 [半音]",
 		},
+		cli.Float64Flag{
+			Name:  "frame-period, p",
+			Usage: "フレームピリオド [msec]",
+			Value: 5.0,
+		},
 		cli.Int64Flag{
 			Name:  "rate, r",
 			Usage: "出力サンプリング周波数（ファイル保存時のみ有効・省略時は入力と同じ）",
@@ -88,6 +93,12 @@ func main() {
 			return cli.NewExitError(err, 1)
 		}
 
+		framePeriodMsec := ctx.Float64("frame-period")
+		if framePeriodMsec < 1.0 || 200.0 < framePeriodMsec {
+			err := errors.New("フレームピリオドは 1..200 の数値である必要があります")
+			return cli.NewExitError(err, 1)
+		}
+
 		rate := ctx.Int64("rate")
 		if rate != 0 && (rate < 8000 || 96000 < rate) {
 			err := errors.New("サンプリング周波数は 8000..96000 の数値である必要があります")
@@ -99,7 +110,7 @@ func main() {
 		if 2 <= ctx.NArg() {
 			outfile = ctx.Args()[1]
 		}
-		if err := voispire.Demo(transpose, formant, int(rate), infile, outfile); err != nil {
+		if err := voispire.Demo(transpose, formant, framePeriodMsec*.001, int(rate), infile, outfile); err != nil {
 			return cli.NewExitError(err, 1)
 		}
 		return nil

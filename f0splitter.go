@@ -12,17 +12,19 @@ const (
 )
 
 type f0Splitter struct {
-	input  chan float64
-	output chan buffer.Shape
-	f0     []float64
-	fs     float64
+	input       chan float64
+	output      chan buffer.Shape
+	f0          []float64
+	fs          float64
+	framePeriod float64
 }
 
-func newF0Splitter(f0 []float64, fs float64) *f0Splitter {
+func newF0Splitter(f0 []float64, fs, framePeriod float64) *f0Splitter {
 	return &f0Splitter{
-		f0:     f0,
-		fs:     fs,
-		output: make(chan buffer.Shape, 4096),
+		f0:          f0,
+		fs:          fs,
+		framePeriod: framePeriod,
+		output:      make(chan buffer.Shape, 4096),
 	}
 }
 
@@ -39,7 +41,7 @@ func (s *f0Splitter) Start() {
 		for v := range s.input {
 			i := len(buf)
 			buf = append(buf, v)
-			j := int(math.Floor(t / float64(framePeriod)))
+			j := int(math.Floor(t / float64(s.framePeriod)))
 			freq := lastFreq
 			if j < len(s.f0) && minFreq <= s.f0[j] {
 				freq = s.f0[j]

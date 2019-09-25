@@ -3,6 +3,7 @@ package voispire
 import (
 	"log"
 	"math"
+	"time"
 
 	"github.com/but80/voispire/internal/buffer"
 	"github.com/but80/voispire/internal/wav"
@@ -54,11 +55,12 @@ func render(rate int, in chan float64) (chan struct{}, error) {
 }
 
 const (
-	framePeriod = .005
+	f0Floor = 71.0
+	f0Ceil  = 800.0
 )
 
 // Demo は、デモ実装です。
-func Demo(transpose, formant float64, rate int, infile, outfile string) error {
+func Demo(transpose, formant, framePeriod float64, rate int, infile, outfile string) error {
 	src, fs, err := wav.Load(infile)
 	if err != nil {
 		return errors.Wrap(err, "音声ファイルの読み込みに失敗しました")
@@ -66,8 +68,7 @@ func Demo(transpose, formant float64, rate int, infile, outfile string) error {
 	log.Printf("debug: IN: %d samples, fs=%d", len(src), fs)
 
 	log.Print("info: 基本周波数を推定中...")
-	f0, spectro := world.Dio(src, fs, framePeriod)
-	_ = spectro
+	f0, _ := world.Harvest(src, fs, framePeriod, f0Floor, f0Ceil)
 
 	fsOut := fs
 	if 0 < rate {
@@ -78,7 +79,7 @@ func Demo(transpose, formant float64, rate int, infile, outfile string) error {
 	pitchCoef := math.Pow(2.0, transpose/12.0)
 	formantCoef := math.Pow(2.0, (formant-transpose)/12.0)
 	mod1 := newFormantShifter(src, 1024, formantCoef)
-	mod2 := newF0Splitter(f0, float64(fs))
+	mod2 := newF0Splitter(f0, float64(fs), framePeriod)
 	mod3 := newStretcher(pitchCoef, 1.0, float64(fsOut)/float64(fs))
 
 	mod2.input = mod1.output
@@ -97,6 +98,7 @@ func Demo(transpose, formant float64, rate int, infile, outfile string) error {
 		mod3.resampleCoef = float64(rate) / float64(fs)
 		mod3.Start()
 		<-endCh
+		time.Sleep(time.Second)
 	} else {
 		mod3.Start()
 		result := []float64{}
