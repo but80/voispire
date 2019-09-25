@@ -1,0 +1,97 @@
+#!/usr/bin/env python
+
+# usage: vocoder.py [-h] [-t TRANSPOSE] [-f FORMANT] [-b BREATHINESS] [-e]
+#                   in_file [out_file]
+#
+# positional arguments:
+#   in_file               input wav file
+#   out_file              output wav file (default: direct playback)
+#
+# optional arguments:
+#   -h, --help            show this help message and exit
+#   -t TRANSPOSE, --transpose TRANSPOSE
+#                         transpose [semitones]
+#   -f FORMANT, --formant FORMANT
+#                         formant shift [semitones]
+#   -b BREATHINESS, --breathiness BREATHINESS
+#                         breathiness boost [%]
+#   -e, --economy         use Dio instead of Harvest
+
+from pprint import pprint
+import argparse
+import numpy as np
+import soundfile as sf
+import pyworld as pw
+import simpleaudio as sa
+
+parser = argparse.ArgumentParser(prog='vocoder.py')
+parser.add_argument('-t', '--transpose', type=float, default=6., help='transpose [semitones]')
+parser.add_argument('-f', '--formant', type=float, default=3., help='formant shift [semitones]')
+parser.add_argument('-b', '--breathiness', type=float, default=.3, help='breathiness boost [%%]')
+parser.add_argument('-e', '--economy', action='store_const', const=True, help='use Dio instead of Harvest')
+parser.add_argument('in_file', help='input wav file')
+parser.add_argument('out_file', nargs='?', help='output wav file (default: direct playback)')
+
+def lerp(a, b, t):
+    return a + (b - a) * t
+
+def shift_formant(sp, semitones):
+    sp = sp.T
+    k = pow(2., semitones/12.)
+    sp2 = np.zeros_like(sp)
+    n = sp.shape[0]
+    for i in range(0, n):
+        t = i / (n-1)
+        t = min(t / k, 1.)
+        c = t * (n-1)
+        l = int(c)
+        f = c-l
+        r = l+1
+        if r < n:
+            sp2[i] = lerp(sp[l], sp[r], f)
+        else:
+            sp2[i] = sp[l]
+    return sp2.T
+
+def retouch_noise(ap, width, level):
+    ap = ap.T
+    n = ap.shape[0]
+    for i in range(0, n):
+        t = i / (n-1) * width * 100.
+        t = min(1., t)
+        ap[i] = pow(ap[i], lerp(1., 1.-level, t))
+    return ap.T
+
+def main(args):
+    x, fs = sf.read(args.in_file)
+
+    if args.economy:
+        f0, t = pw.dio(x, fs,
+            f0_floor=50.0,
+            f0_ceil=600.0,
+            channels_in_octave=2,
+            frame_period=pw.default_frame_period,
+            speed=1)
+        f0 = pw.stonemask(x, f0, t, fs)
+        sp = pw.cheaptrick(x, f0, t, fs)
+        ap = pw.d4c(x, f0, t, fs)
+    else:
+        f0, t = pw.harvest(x, fs)
+        f0 = pw.stonemask(x, f0, t, fs)
+        sp = pw.cheaptrick(x, f0, t, fs)
+        ap = pw.d4c(x, f0, t, fs)
+
+    f0 *= pow(2., args.transpose/12.)
+    sp = shift_formant(sp, args.formant)
+    ap = retouch_noise(ap, .8, args.breathiness/100.)
+    y = pw.synthesize(f0, sp, ap, fs, pw.default_frame_period)
+    if args.out_file is not None:
+        sf.write(args.out_file, y, fs)
+    else:
+        signal = (y*32767).astype(np.int16)
+        pb = sa.play_buffer(signal, 1, 2, fs)
+        pb.wait_done()
+
+if __name__ == '__main__':
+    args = parser.parse_args()
+    main(args)
