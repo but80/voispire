@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en-us">
+	<head>
+		<meta charset="utf-8">
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>Emscripten-Generated Code</title>
+		<style type="text/css">
+			#filedrop {
+				background-color: #ddd;
+				min-height: 100px;
+				padding: 20px;
+			}
+			#filedrop.dropover {
+				background-color: #cff;
+				color: #9cc;
+			}
+		</style>
+	</head>
+	<body>
+		<script type="text/javascript">
+			var Module = {
+				preRun: () => {},
+				postRun: () => {},
+				print: text => console.log(performance.now(), text),
+				printErr: text => console.error(text),
+				setStatus: text => console.log('status: ' + text),
+				monitorRunDependencies: left => {}
+			};
+		</script>
+		{{{ SCRIPT }}}
+
+		<div id="filedrop" effectAllowed="move">Drop a WAV file here</div>
+
+		<script type="text/javascript">
+			const e = document.getElementById('filedrop');
+			e.addEventListener('dragover', function(event) {
+				event.preventDefault();
+				event.dataTransfer.dropEffect = 'copy';
+				e.classList.add('dropover');
+			});
+			e.addEventListener('dragleave', function(event) {
+				e.classList.remove('dropover');
+			});
+			e.addEventListener('drop', function(event) {
+				event.preventDefault();
+				e.classList.remove('dropover');
+				const files = event.dataTransfer.files;
+				const file = files[0];
+				if (!file.type.match('audio.*')) {
+					alert('音声ファイルをドロップしてください: ' + file.type);
+				}
+				const reader = new FileReader();
+				reader.onload = () => {
+					const ctx = new AudioContext();
+					ctx.decodeAudioData(reader.result, buffer => {
+						const result = callVocoder(buffer.getChannelData(0), buffer.sampleRate);
+						const newBuffer = ctx.createBuffer(1, result.length, buffer.sampleRate);
+						newBuffer.getChannelData(0).set(result);
+						const audioSource = ctx.createBufferSource();
+						audioSource.buffer = newBuffer;
+						audioSource.connect(ctx.destination);
+						audioSource.start();
+					});
+				};
+				reader.readAsArrayBuffer(file);
+			});
+
+			function callVocoder(x, fs) {
+				const f0Shift = 6.0;
+				const formantShift = 3.0;
+				const breathiness = .3;
+
+				const xHeap = Module._malloc(x.length<<3);
+				const xOffset = xHeap>>3;
+				Module.HEAPF64.set(x, xOffset);
+				Module.ccall(
+					'vocoder',
+					null, ['number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number'],
+					[xHeap, x.length, fs, 5.0, 71.0, 800.0, f0Shift, formantShift, breathiness]
+				);
+				const result = Module.HEAPF64.slice(xOffset, xOffset + x.length);
+				return result;
+			}
+		</script>
+	</body>
+</html>
+
+
