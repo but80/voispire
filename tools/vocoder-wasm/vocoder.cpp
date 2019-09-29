@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <emscripten/emscripten.h>
+#include "world/dio.h"
 #include "world/harvest.h"
 #include "world/stonemask.h"
 #include "world/cheaptrick.h"
@@ -41,20 +42,37 @@ void retouchNoise(double** aperiod, int f0Length, int fftSizeHalf, double width,
 extern "C" {
 
 EMSCRIPTEN_KEEPALIVE
-void vocoder(double* x, int xLength, int fs, double framePeriodMsec, double f0Floor, double f0Ceil, double confF0Shift, double confFormantShift, double confBreathiness) {
-	HarvestOption harvestOption;
-	InitializeHarvestOption(&harvestOption);
-	harvestOption.f0_floor = f0Floor;
-	harvestOption.f0_ceil = f0Ceil;
-	harvestOption.frame_period = framePeriodMsec;
-	int f0Length = GetSamplesForHarvest(fs, xLength, harvestOption.frame_period);
+void vocoder(double* x, int xLength, int fs, double framePeriodMsec, double f0Floor, double f0Ceil, bool useHarvest, double confF0Shift, double confFormantShift, double confBreathiness) {
+	int f0Length;
+	double* tmppos;
+	double* f0h;
 
 	// Estimate f0
 	printf("estimating f0\n");
-	double* tmppos = new double[f0Length];
-	double* f0h = new double[f0Length];
-	Harvest(x, xLength, fs, &harvestOption, tmppos, f0h);
+	if (useHarvest) {
+		HarvestOption opt;
+		InitializeHarvestOption(&opt);
+		opt.f0_floor = f0Floor;
+		opt.f0_ceil = f0Ceil;
+		opt.frame_period = framePeriodMsec;
+		f0Length = GetSamplesForHarvest(fs, xLength, framePeriodMsec);
+		tmppos = new double[f0Length];
+		f0h = new double[f0Length];
+		Harvest(x, xLength, fs, &opt, tmppos, f0h);
+	} else {
+		DioOption opt;
+		InitializeDioOption(&opt);
+		opt.f0_floor = f0Floor;
+		opt.f0_ceil = f0Ceil;
+		opt.frame_period = framePeriodMsec;
+		f0Length = GetSamplesForDIO(fs, xLength, framePeriodMsec);
+		tmppos = new double[f0Length];
+		f0h = new double[f0Length];
+		Dio(x, xLength, fs, &opt, tmppos, f0h);
+	}
 
+	// Refine f0
+	printf("refining f0\n");
 	double* f0 = new double[f0Length];
 	StoneMask(x, xLength, fs, tmppos, f0h, f0Length, f0);
 	delete[] f0h;

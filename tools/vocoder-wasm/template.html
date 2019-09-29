@@ -18,10 +18,11 @@
 	</head>
 	<body>
 		<script type="text/javascript">
+			var startTime = .0;
 			var Module = {
 				preRun: () => {},
 				postRun: () => {},
-				print: text => console.log(performance.now(), text),
+				print: text => console.log(Math.round(performance.now() - startTime) / 1000.0, text),
 				printErr: text => console.error(text),
 				setStatus: text => console.log('status: ' + text),
 				monitorRunDependencies: left => {}
@@ -53,6 +54,7 @@
 				reader.onload = () => {
 					const ctx = new AudioContext();
 					ctx.decodeAudioData(reader.result, buffer => {
+						console.log(buffer);
 						const result = callVocoder(buffer.getChannelData(0), buffer.sampleRate);
 						const newBuffer = ctx.createBuffer(1, result.length, buffer.sampleRate);
 						newBuffer.getChannelData(0).set(result);
@@ -73,10 +75,11 @@
 				const xHeap = Module._malloc(x.length<<3);
 				const xOffset = xHeap>>3;
 				Module.HEAPF64.set(x, xOffset);
+				startTime = performance.now();
 				Module.ccall(
 					'vocoder',
-					null, ['number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number'],
-					[xHeap, x.length, fs, 5.0, 71.0, 800.0, f0Shift, formantShift, breathiness]
+					null, ['number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number'],
+					[xHeap, x.length, fs, 5.0, 71.0, 800.0, false, f0Shift, formantShift, breathiness]
 				);
 				const result = Module.HEAPF64.slice(xOffset, xOffset + x.length);
 				return result;
