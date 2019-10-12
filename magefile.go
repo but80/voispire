@@ -132,12 +132,17 @@ func Run() error {
 	return runVWithArgs("go", "run", "cmd/voispire/main.go")
 }
 
-// Run program with profiling
-func Prof() error {
-	return runVWithArgs("go", "run", "cmd/voispire/*.go")
+// Build program with profiling
+func BuildProf() error {
+	return runVWithArgs("go", "build", "-tags", "prof", "./cmd/voispire")
 }
 
-// Run program with profiling without inlining optimization
-func Prof2() error {
-	return runVWithArgs("go", "run", "-gcflags", "-N -l", "cmd/voispire/*.go")
+// Build program with profiling without inlining optimization
+func BuildProf2() error {
+	return runVWithArgs("go", "build", "-tags", "prof", "-gcflags", "-N -l", "./cmd/voispire/*.go")
+}
+
+// View the result of profiling
+func ViewProf() error {
+	return runVWithArgs("go", "tool", "pprof", "-http=:", "voispire.exe", "cpu.pprof")
 }

@@ -117,7 +117,7 @@ func Demo(transpose, formant, framePeriod float64, rate int, infile, outfile str
 		time.Sleep(time.Second)
 	} else {
 		lastmod.Start()
-		result := []float64{}
+		result := make([]float64, 0, len(src))
 		log.Print("info: 変換中...")
 		for {
 			v, ok := <-outCh

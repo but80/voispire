@@ -17,7 +17,14 @@ const description = `
      https://github.com/mmorise/World を使用しています。
 `
 
+var onExit func()
+
 func main() {
+	defer func() {
+		if onExit != nil {
+			onExit()
+		}
+	}()
 	app := cli.NewApp()
 	app.Name = "voispire"
 	app.Version = version

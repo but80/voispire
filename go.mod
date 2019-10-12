@@ -14,8 +14,10 @@ require (
 	github.com/mattn/go-zglob v0.0.1
 	github.com/mjibson/go-dsp v0.0.0-20180508042940-11479a337f12
 	github.com/pkg/errors v0.8.0
+	github.com/pkg/profile v1.3.0
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/stretchr/testify v1.2.2
 	github.com/urfave/cli v1.20.0
 	github.com/xlab/closer v0.0.0-20161113214103-89cd22812c4f
+	gonum.org/v1/gonum v0.0.0-20191009222026-5d5638e6749a
 )

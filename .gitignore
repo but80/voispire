@@ -1,6 +1,7 @@
 /voispire
 /voispire.exe
 /*.wav
+/cpu.pprof
 
 
 # Created by https://www.gitignore.io/api/osx,windows,code,intellij,go,python

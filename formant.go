@@ -9,21 +9,28 @@ import (
 
 type formantShifter struct {
 	*fftProcessor
+	width      int
 	shiftInv   float64
 	maxPeakNum int
+	ampBuf     []float64
+	envBuf     []float64
 }
 
 func newFormantShifter(src []float64, width int, shift float64) *formantShifter {
 	shiftInv := 1.0 / shift
 	maxPeakNum := 100
-	result := &formantShifter{}
-	result.fftProcessor = newFFTProcessor(src, width, func(spec []complex128) []complex128 {
+	s := &formantShifter{
+		width:  width,
+		ampBuf: make([]float64, width/2),
+		envBuf: make([]float64, width/2),
+	}
+	s.fftProcessor = newFFTProcessor(src, width, func(spec []complex128) []complex128 {
 		if len(spec) <= 4 {
 			return spec
 		}
 		n := len(spec) >> 1
-		peaks := findPeaks(spec[:n], maxPeakNum)
-		env := peaksToEnvelope(n, peaks)
+		peaks := s.findPeaks(spec[:n], maxPeakNum)
+		env := s.peaksToEnvelope(peaks)
 		for i := 0; i < n; i++ {
 			j := int(float64(i) * shiftInv)
 			if n <= j {
@@ -36,7 +43,7 @@ func newFormantShifter(src []float64, width int, shift float64) *formantShifter 
 		}
 		return spec
 	})
-	return result
+	return s
 }
 
 type peak struct {
@@ -55,9 +62,9 @@ func findPeak(spec []float64) peak {
 	return result
 }
 
-func findPeaks(spec []complex128, peakNum int) []peak {
+func (s *formantShifter) findPeaks(spec []complex128, peakNum int) []peak {
 	n := len(spec)
-	amp := make([]float64, n)
+	amp := s.ampBuf
 	for i, v := range spec {
 		amp[i] = cmplx.Abs(v)
 	}
@@ -84,8 +91,9 @@ func findPeaks(spec []complex128, peakNum int) []peak {
 	return peaks
 }
 
-func peaksToEnvelope(n int, peaks []peak) []float64 {
-	result := make([]float64, n)
+func (s *formantShifter) peaksToEnvelope(peaks []peak) []float64 {
+	n := s.width / 2
+	result := s.envBuf
 	p0 := peak{index: 0, level: peaks[0].level}
 	var p1 peak
 	for i := 0; i <= len(peaks); i++ {
