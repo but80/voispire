@@ -7,6 +7,11 @@ import (
 
 // https://synsinger.wordpress.com/2015/11/21/pitch-shifting-using-a-spectral-envelope/
 
+type peak struct {
+	index int
+	level float64
+}
+
 type formantShifter struct {
 	*fftProcessor
 	width      int
@@ -14,22 +19,24 @@ type formantShifter struct {
 	maxPeakNum int
 	ampBuf     []float64
 	envBuf     []float64
+	peaksBuf   []peak
 }
 
 func newFormantShifter(src []float64, width int, shift float64) *formantShifter {
 	shiftInv := 1.0 / shift
 	maxPeakNum := 100
 	s := &formantShifter{
-		width:  width,
-		ampBuf: make([]float64, width/2),
-		envBuf: make([]float64, width/2),
+		width:    width,
+		ampBuf:   make([]float64, width),
+		envBuf:   make([]float64, width),
+		peaksBuf: make([]peak, 0, maxPeakNum),
 	}
 	s.fftProcessor = newFFTProcessor(src, width, func(spec []complex128) []complex128 {
 		if len(spec) <= 4 {
 			return spec
 		}
-		n := len(spec) >> 1
-		peaks := s.findPeaks(spec[:n], maxPeakNum)
+		n := len(spec)
+		peaks := s.findPeaks(spec, maxPeakNum)
 		env := s.peaksToEnvelope(peaks)
 		for i := 0; i < n; i++ {
 			j := int(float64(i) * shiftInv)
@@ -38,17 +45,9 @@ func newFormantShifter(src []float64, width int, shift float64) *formantShifter 
 			}
 			spec[i] *= complex(2.0*env[j]/env[i], .0)
 		}
-		for i := n; i < len(spec); i++ {
-			spec[i] = .0
-		}
 		return spec
 	})
 	return s
-}
-
-type peak struct {
-	index int
-	level float64
 }
 
 func findPeak(spec []float64) peak {
@@ -68,7 +67,7 @@ func (s *formantShifter) findPeaks(spec []complex128, peakNum int) []peak {
 	for i, v := range spec {
 		amp[i] = cmplx.Abs(v)
 	}
-	peaks := []peak{}
+	peaks := s.peaksBuf[0:0]
 	m := n/peakNum - 1
 	if m < 0 {
 		m = 1
@@ -92,7 +91,7 @@ func (s *formantShifter) findPeaks(spec []complex128, peakNum int) []peak {
 }
 
 func (s *formantShifter) peaksToEnvelope(peaks []peak) []float64 {
-	n := s.width / 2
+	n := s.width
 	result := s.envBuf
 	p0 := peak{index: 0, level: peaks[0].level}
 	var p1 peak

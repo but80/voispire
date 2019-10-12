@@ -38,7 +38,7 @@ func (s *fftProcessor) Start() {
 		resultPrev := make([]float64, s.width)
 		result := make([]float64, s.width)
 		wave := make([]float64, s.width)
-		widthInv := 1.0 / float64(s.width)
+		ampCoef := .5 / float64(s.width)
 		n0 := len(s.src)
 		n := n0
 		if n%step != 0 {
@@ -58,7 +58,7 @@ func (s *fftProcessor) Start() {
 			spec2 := s.processor(spec)
 			s.fft.Sequence(result, spec2)
 			for i, v := range result {
-				result[i] = v * widthInv
+				result[i] = v * ampCoef
 			}
 			prev := resultPrev[step:]
 			for i := 0; i < step; i++ {

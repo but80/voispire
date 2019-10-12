@@ -9,8 +9,8 @@ import (
 	"github.com/but80/voispire/internal/wav"
 	"github.com/but80/voispire/internal/world"
 	"github.com/hajimehoshi/oto"
-	"github.com/pkg/errors"
 	"github.com/xlab/closer"
+	"golang.org/x/xerrors"
 )
 
 func join(input chan buffer.Shape) chan float64 {
@@ -63,7 +63,7 @@ const (
 func Demo(transpose, formant, framePeriod float64, rate int, infile, outfile string) error {
 	src, fs, err := wav.Load(infile)
 	if err != nil {
-		return errors.Wrap(err, "音声ファイルの読み込みに失敗しました")
+		return xerrors.Errorf("音声ファイルの読み込みに失敗しました: %w", err)
 	}
 	log.Printf("debug: IN: %d samples, fs=%d", len(src), fs)
 
@@ -106,7 +106,7 @@ func Demo(transpose, formant, framePeriod float64, rate int, infile, outfile str
 		rate := 44100
 		endCh, err := render(rate, outCh)
 		if err != nil {
-			return errors.Wrap(err, "出力ストリームのオープンに失敗しました")
+			return xerrors.Errorf("出力ストリームのオープンに失敗しました: %w", err)
 		}
 		if mod3 != nil {
 			mod3.resampleCoef = float64(rate) / float64(fs)

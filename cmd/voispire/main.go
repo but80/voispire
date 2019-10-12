@@ -6,8 +6,8 @@ import (
 
 	"github.com/but80/voispire"
 	"github.com/comail/colog"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli"
+	"golang.org/x/xerrors"
 )
 
 var version = "unknown"
@@ -90,25 +90,25 @@ func main() {
 
 		transpose := ctx.Float64("transpose")
 		if transpose < -24.0 || 24.0 < transpose {
-			err := errors.New("ピッチシフト量は -24..24 の数値である必要があります")
+			err := xerrors.New("ピッチシフト量は -24..24 の数値である必要があります")
 			return cli.NewExitError(err, 1)
 		}
 
 		formant := ctx.Float64("formant")
 		if formant < -24.0 || 24.0 < formant {
-			err := errors.New("フォルマントシフト量は -24..24 の数値である必要があります")
+			err := xerrors.New("フォルマントシフト量は -24..24 の数値である必要があります")
 			return cli.NewExitError(err, 1)
 		}
 
 		framePeriodMsec := ctx.Float64("frame-period")
 		if framePeriodMsec < 1.0 || 200.0 < framePeriodMsec {
-			err := errors.New("フレームピリオドは 1..200 の数値である必要があります")
+			err := xerrors.New("フレームピリオドは 1..200 の数値である必要があります")
 			return cli.NewExitError(err, 1)
 		}
 
 		rate := ctx.Int64("rate")
 		if rate != 0 && (rate < 8000 || 96000 < rate) {
-			err := errors.New("サンプリング周波数は 8000..96000 の数値である必要があります")
+			err := xerrors.New("サンプリング周波数は 8000..96000 の数値である必要があります")
 			return cli.NewExitError(err, 1)
 		}
 
