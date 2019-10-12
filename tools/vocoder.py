@@ -11,11 +11,13 @@
 #   -h, --help            show this help message and exit
 #   -t TRANSPOSE, --transpose TRANSPOSE
 #                         transpose [semitones]
+#   -c CORRECT_PITCH, --correct_pitch CORRECT_PITCH
+#                         pitch correction [%]
 #   -f FORMANT, --formant FORMANT
 #                         formant shift [semitones]
 #   -b BREATHINESS, --breathiness BREATHINESS
 #                         breathiness boost [%]
-#   -e, --economy         use Dio instead of Harvest
+#   -H, --high_quality    use Harvest instead of Dio
 #   -v, --visualize       visualize f0, sp and ap with Sixel
 
 import argparse
@@ -30,15 +32,23 @@ import sixel
 
 parser = argparse.ArgumentParser(prog='vocoder.py')
 parser.add_argument('-t', '--transpose', type=float, default=6., help='transpose [semitones]')
+parser.add_argument('-c', '--correct_pitch', type=float, default=0., help='pitch correction [%%]')
 parser.add_argument('-f', '--formant', type=float, default=3., help='formant shift [semitones]')
 parser.add_argument('-b', '--breathiness', type=float, default=.3, help='breathiness boost [%%]')
-parser.add_argument('-e', '--economy', action='store_const', const=True, help='use Dio instead of Harvest')
+parser.add_argument('-H', '--high_quality', action='store_const', const=True, help='use Harvest instead of Dio')
 parser.add_argument('-v', '--visualize', action='store_const', const=True, help='visualize f0, sp and ap with Sixel')
 parser.add_argument('in_file', help='input wav file')
 parser.add_argument('out_file', nargs='?', help='output wav file (default: direct playback)')
 
 def lerp(a, b, t):
     return a + (b - a) * t
+
+def correct_pitch(f0, rate):
+    f0s = np.log2(f0 / 440. + 1e-30) * 12.
+    f0sr = np.around(f0s)
+    result_s = lerp(f0s, f0sr, rate)
+    result = np.power(2., result_s / 12.) * 440.
+    return np.where(f0 != 0., result, 0.)
 
 def shift_formant(sp, semitones):
     sp = sp.T
@@ -87,26 +97,31 @@ def show_figure(f, log=True):
 
 def main(args):
     x, fs = sf.read(args.in_file)
+    f0 = None
+    t = None
 
-    if args.economy:
+    if args.high_quality:
+        f0, t = pw.harvest(x, fs)
+    else:
         f0, t = pw.dio(x, fs,
             f0_floor=50.0,
             f0_ceil=600.0,
             channels_in_octave=2,
             frame_period=pw.default_frame_period,
             speed=1)
-        f0 = pw.stonemask(x, f0, t, fs)
-        sp = pw.cheaptrick(x, f0, t, fs)
-        ap = pw.d4c(x, f0, t, fs)
-    else:
-        f0, t = pw.harvest(x, fs)
-        f0 = pw.stonemask(x, f0, t, fs)
-        sp = pw.cheaptrick(x, f0, t, fs)
-        ap = pw.d4c(x, f0, t, fs)
 
-    f0 *= pow(2., args.transpose/12.)
-    sp = shift_formant(sp, args.formant)
-    ap = retouch_noise(ap, .8, args.breathiness/100.)
+    f0 = pw.stonemask(x, f0, t, fs)
+    sp = pw.cheaptrick(x, f0, t, fs)
+    ap = pw.d4c(x, f0, t, fs)
+
+    if args.transpose != 0.:
+        f0 *= pow(2., args.transpose/12.)
+    if args.correct_pitch != 0.:
+        f0 = correct_pitch(f0, args.correct_pitch/100.)
+    if args.formant != 0.:
+        sp = shift_formant(sp, args.formant)
+    if args.breathiness != 0.:
+        ap = retouch_noise(ap, .8, args.breathiness/100.)
     y = pw.synthesize(f0, sp, ap, fs, pw.default_frame_period)
     if args.visualize:
         show_figure(f0)
