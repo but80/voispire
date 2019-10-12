@@ -67,27 +67,40 @@ func Demo(transpose, formant, framePeriod float64, rate int, infile, outfile str
 	}
 	log.Printf("debug: IN: %d samples, fs=%d", len(src), fs)
 
-	log.Print("info: 基本周波数を推定中...")
-	f0, _ := world.Harvest(src, fs, framePeriod, f0Floor, f0Ceil)
+	var f0 []float64
+	if transpose != 0 {
+		log.Print("info: 基本周波数を推定中...")
+		f0, _ = world.Harvest(src, fs, framePeriod, f0Floor, f0Ceil)
+	}
 
 	fsOut := fs
 	if 0 < rate {
 		fsOut = rate
 	}
 
-	log.Print("info: 変換中...")
 	pitchCoef := math.Pow(2.0, transpose/12.0)
 	formantCoef := math.Pow(2.0, (formant-transpose)/12.0)
+
 	mod1 := newFormantShifter(src, 1024, formantCoef)
-	mod2 := newF0Splitter(f0, float64(fs), framePeriod)
-	mod3 := newStretcher(pitchCoef, 1.0, float64(fsOut)/float64(fs))
-
-	mod2.input = mod1.output
-	mod3.input = mod2.output
-	outCh := join(mod3.output)
-
-	mod1.Start()
-	mod2.Start()
+	var mod2 *f0Splitter
+	var mod3 *stretcher
+	var lastmod interface{ Start() }
+	var outCh chan float64
+	if transpose == 0 {
+		log.Print("info: フォルマントシフタのみを使用します")
+		outCh = mod1.output
+		lastmod = mod1
+	} else {
+		log.Print("info: フォルマントシフタとストレッチャを使用します")
+		mod2 = newF0Splitter(f0, float64(fs), framePeriod)
+		mod3 = newStretcher(pitchCoef, 1.0, float64(fsOut)/float64(fs))
+		mod2.input = mod1.output
+		mod3.input = mod2.output
+		outCh = join(mod3.output)
+		mod1.Start()
+		mod2.Start()
+		lastmod = mod3
+	}
 
 	if outfile == "" {
 		rate := 44100
@@ -95,13 +108,17 @@ func Demo(transpose, formant, framePeriod float64, rate int, infile, outfile str
 		if err != nil {
 			return errors.Wrap(err, "出力ストリームのオープンに失敗しました")
 		}
-		mod3.resampleCoef = float64(rate) / float64(fs)
-		mod3.Start()
+		if mod3 != nil {
+			mod3.resampleCoef = float64(rate) / float64(fs)
+		}
+		log.Print("info: 変換を開始しました")
+		lastmod.Start()
 		<-endCh
 		time.Sleep(time.Second)
 	} else {
-		mod3.Start()
+		lastmod.Start()
 		result := []float64{}
+		log.Print("info: 変換中...")
 		for {
 			v, ok := <-outCh
 			if !ok {
