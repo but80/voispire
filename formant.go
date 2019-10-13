@@ -1,8 +1,8 @@
 package voispire
 
 import (
-	"math/cmplx"
-	"sort"
+	"github.com/but80/voispire/internal/ldurbin"
+	"golang.org/x/xerrors"
 )
 
 // https://synsinger.wordpress.com/2015/11/21/pitch-shifting-using-a-spectral-envelope/
@@ -14,101 +14,42 @@ type peak struct {
 
 type formantShifter struct {
 	*fftProcessor
-	width      int
-	shiftInv   float64
-	maxPeakNum int
-	ampBuf     []float64
-	envBuf     []float64
-	peaksBuf   []peak
+	width       int
+	shiftInv    float64
+	maxPeakNum  int
+	ampBuf      []float64
+	envBuf      []float64
+	peaksBuf    []peak
+	envDetector *ldurbin.SpectralEnvelopeDetector
 }
 
 func newFormantShifter(src []float64, width int, shift float64) *formantShifter {
 	shiftInv := 1.0 / shift
 	maxPeakNum := 100
 	s := &formantShifter{
-		width:    width,
-		ampBuf:   make([]float64, width),
-		envBuf:   make([]float64, width),
-		peaksBuf: make([]peak, 0, maxPeakNum),
+		width:       width,
+		ampBuf:      make([]float64, width),
+		envBuf:      make([]float64, width),
+		peaksBuf:    make([]peak, 0, maxPeakNum),
+		envDetector: ldurbin.NewSpectralEnvelopeDetector(width, 128),
 	}
-	s.fftProcessor = newFFTProcessor(src, width, func(spec []complex128) []complex128 {
+	s.fftProcessor = newFFTProcessor(src, width, func(spec []complex128, wave []float64) []complex128 {
 		if len(spec) <= 4 {
 			return spec
 		}
 		n := len(spec)
-		peaks := s.findPeaks(spec, maxPeakNum)
-		env := s.peaksToEnvelope(peaks)
+		env := s.envDetector.Detect(wave)
+		if len(spec) != len(env) {
+			panic(xerrors.Errorf("Spectrum size mismatch (%d != %d)", len(spec) != len(env)))
+		}
 		for i := 0; i < n; i++ {
-			j := int(float64(i) * shiftInv)
+			j := int(float64(i)*shiftInv + .5)
 			if n <= j {
 				j = n - 1
 			}
-			spec[i] *= complex(2.0*env[j]/env[i], .0)
+			spec[i] *= complex(env[j]/env[i], .0)
 		}
 		return spec
 	})
 	return s
-}
-
-func findPeak(spec []float64) peak {
-	result := peak{index: -1, level: .0}
-	for i, level := range spec {
-		if result.level < level {
-			result.index = i
-			result.level = level
-		}
-	}
-	return result
-}
-
-func (s *formantShifter) findPeaks(spec []complex128, peakNum int) []peak {
-	n := len(spec)
-	amp := s.ampBuf
-	for i, v := range spec {
-		amp[i] = cmplx.Abs(v)
-	}
-	peaks := s.peaksBuf[0:0]
-	m := n/peakNum - 1
-	if m < 0 {
-		m = 1
-	}
-	for i := 0; i < peakNum; i++ {
-		p := findPeak(amp)
-		if p.index < 0 {
-			break
-		}
-		peaks = append(peaks, p)
-		for j := p.index - m; j <= p.index+m; j++ {
-			if 0 <= j && j < n {
-				amp[j] = .0
-			}
-		}
-	}
-	sort.Slice(peaks, func(i, j int) bool {
-		return peaks[i].index < peaks[j].index
-	})
-	return peaks
-}
-
-func (s *formantShifter) peaksToEnvelope(peaks []peak) []float64 {
-	n := s.width
-	result := s.envBuf
-	p0 := peak{index: 0, level: peaks[0].level}
-	var p1 peak
-	for i := 0; i <= len(peaks); i++ {
-		if i < len(peaks) {
-			p1 = peaks[i]
-		} else {
-			p1 = peak{index: n, level: p0.level}
-		}
-		m := p1.index - p0.index
-		level := p0.level
-		diff := (p1.level - p0.level) / float64(m)
-		for j := p0.index; j < p1.index; j++ {
-			result[j] = level
-			level += diff
-		}
-		p0 = p1
-	}
-	return result
 }

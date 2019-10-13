@@ -12,10 +12,10 @@ type fftProcessor struct {
 	output    chan float64
 	src       []float64
 	width     int
-	processor func([]complex128) []complex128
+	processor func([]complex128, []float64) []complex128
 }
 
-func newFFTProcessor(src []float64, width int, processor func([]complex128) []complex128) *fftProcessor {
+func newFFTProcessor(src []float64, width int, processor func([]complex128, []float64) []complex128) *fftProcessor {
 	if width < 4 {
 		width = 4
 	}
@@ -55,7 +55,7 @@ func (s *fftProcessor) Start() {
 				wave[i] = src[i] * w
 			}
 			s.fft.Coefficients(spec, wave)
-			spec2 := s.processor(spec)
+			spec2 := s.processor(spec, wave)
 			s.fft.Sequence(result, spec2)
 			for i, v := range result {
 				result[i] = v * ampCoef
