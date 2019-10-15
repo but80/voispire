@@ -81,7 +81,7 @@ func Demo(transpose, formant, framePeriod float64, rate int, infile, outfile str
 	pitchCoef := math.Pow(2.0, transpose/12.0)
 	formantCoef := math.Pow(2.0, (formant-transpose)/12.0)
 
-	mod1 := newFormantShifter(src, 1024, formantCoef)
+	mod1 := newFormantShifter(src, fs, 1024, formantCoef)
 	var mod2 *f0Splitter
 	var mod3 *stretcher
 	var lastmod interface{ Start() }
