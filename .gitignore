@@ -2,6 +2,7 @@
 /voispire.exe
 /*.wav
 /cpu.pprof
+/*.mp4
 
 
 # Created by https://www.gitignore.io/api/osx,windows,code,intellij,go,python

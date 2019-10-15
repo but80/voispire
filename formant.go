@@ -15,6 +15,7 @@ type peak struct {
 type formantShifter struct {
 	*fftProcessor
 	width      int
+	fs         int
 	shiftInv   float64
 	maxPeakNum int
 	ampBuf     []float64
@@ -22,13 +23,17 @@ type formantShifter struct {
 	peaksBuf   []peak
 }
 
-func newFormantShifter(src []float64, width int, shift float64) *formantShifter {
+var onFormantFFTProcess func(*formantShifter, []float64, []float64, []complex128, []complex128)
+var onFormantFFTFinish func(*formantShifter)
+
+func newFormantShifter(src []float64, fs, width int, shift float64) *formantShifter {
 	shiftInv := 1.0 / shift
 	maxPeakNum := 100
 	s := &formantShifter{
 		width:    width,
-		ampBuf:   make([]float64, width),
-		envBuf:   make([]float64, width),
+		fs:       fs,
+		ampBuf:   make([]float64, width/2+1),
+		envBuf:   make([]float64, width/2+1),
 		peaksBuf: make([]peak, 0, maxPeakNum),
 	}
 	s.fftProcessor = newFFTProcessor(src, width, func(spec []complex128) []complex128 {
@@ -43,10 +48,20 @@ func newFormantShifter(src []float64, width int, shift float64) *formantShifter 
 			if n <= j {
 				j = n - 1
 			}
-			spec[i] *= complex(2.0*env[j]/env[i], .0)
+			spec[i] *= complex(env[j]/env[i], .0)
 		}
 		return spec
 	})
+	s.fftProcessor.OnProcess = func(wave0, wave1 []float64, spec0, spec1 []complex128) {
+		if onFormantFFTProcess != nil {
+			onFormantFFTProcess(s, wave0, wave1, spec0, spec1)
+		}
+	}
+	s.fftProcessor.OnFinish = func() {
+		if onFormantFFTFinish != nil {
+			onFormantFFTFinish(s)
+		}
+	}
 	return s
 }
 
@@ -91,7 +106,6 @@ func (s *formantShifter) findPeaks(spec []complex128, peakNum int) []peak {
 }
 
 func (s *formantShifter) peaksToEnvelope(peaks []peak) []float64 {
-	n := s.width
 	result := s.envBuf
 	p0 := peak{index: 0, level: peaks[0].level}
 	var p1 peak
@@ -99,7 +113,7 @@ func (s *formantShifter) peaksToEnvelope(peaks []peak) []float64 {
 		if i < len(peaks) {
 			p1 = peaks[i]
 		} else {
-			p1 = peak{index: n, level: p0.level}
+			p1 = peak{index: s.width/2 + 1, level: p0.level}
 		}
 		m := p1.index - p0.index
 		level := p0.level
