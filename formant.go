@@ -31,7 +31,7 @@ func newFormantShifter(src []float64, fs, width int, shift float64) *formantShif
 		width:       width,
 		fs:          fs,
 		envBuf:      make([]float64, width),
-		envDetector: ldurbin.NewSpectralEnvelopeDetector(width, 64),
+		envDetector: ldurbin.NewSpectralEnvelopeDetector(width, 48),
 	}
 	s.fftProcessor = newFFTProcessor(src, width, func(spec []complex128, wave []float64) []complex128 {
 		if len(spec) <= 4 {
@@ -39,12 +39,21 @@ func newFormantShifter(src []float64, fs, width int, shift float64) *formantShif
 		}
 		n := len(spec)
 		env := s.envDetector.Detect(wave)
-		s.envBuf = env
-		if len(spec) != len(env) {
-			panic(xerrors.Errorf("Spectrum size mismatch (%d != %d)", len(spec) != len(env)))
+		if n != len(env) {
+			panic(xerrors.Errorf("Spectrum size mismatch (%d != %d)", n != len(env)))
 		}
-		for i := 0; i < n; i++ {
+		s.envBuf = env
+
+		thr := int(float64(n) * shiftInv)
+		for i := thr; i < n; i++ {
+			env[i] = env[thr]
+		}
+
+		for i := 1; i < n; i++ {
 			j := int(float64(i)*shiftInv + .5)
+			if j < 1 {
+				j = 1
+			}
 			if n <= j {
 				j = n - 1
 			}
