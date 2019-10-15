@@ -15,23 +15,23 @@ type peak struct {
 type formantShifter struct {
 	*fftProcessor
 	width       int
+	fs          int
 	shiftInv    float64
 	maxPeakNum  int
-	ampBuf      []float64
 	envBuf      []float64
-	peaksBuf    []peak
 	envDetector *ldurbin.SpectralEnvelopeDetector
 }
 
-func newFormantShifter(src []float64, width int, shift float64) *formantShifter {
+var onFormantFFTProcess func(*formantShifter, []float64, []float64, []complex128, []complex128)
+var onFormantFFTFinish func(*formantShifter)
+
+func newFormantShifter(src []float64, fs, width int, shift float64) *formantShifter {
 	shiftInv := 1.0 / shift
-	maxPeakNum := 100
 	s := &formantShifter{
 		width:       width,
-		ampBuf:      make([]float64, width),
+		fs:          fs,
 		envBuf:      make([]float64, width),
-		peaksBuf:    make([]peak, 0, maxPeakNum),
-		envDetector: ldurbin.NewSpectralEnvelopeDetector(width, 128),
+		envDetector: ldurbin.NewSpectralEnvelopeDetector(width, 64),
 	}
 	s.fftProcessor = newFFTProcessor(src, width, func(spec []complex128, wave []float64) []complex128 {
 		if len(spec) <= 4 {
@@ -39,6 +39,7 @@ func newFormantShifter(src []float64, width int, shift float64) *formantShifter 
 		}
 		n := len(spec)
 		env := s.envDetector.Detect(wave)
+		s.envBuf = env
 		if len(spec) != len(env) {
 			panic(xerrors.Errorf("Spectrum size mismatch (%d != %d)", len(spec) != len(env)))
 		}
@@ -51,5 +52,15 @@ func newFormantShifter(src []float64, width int, shift float64) *formantShifter 
 		}
 		return spec
 	})
+	s.fftProcessor.OnProcess = func(wave0, wave1 []float64, spec0, spec1 []complex128) {
+		if onFormantFFTProcess != nil {
+			onFormantFFTProcess(s, wave0, wave1, spec0, spec1)
+		}
+	}
+	s.fftProcessor.OnFinish = func() {
+		if onFormantFFTFinish != nil {
+			onFormantFFTFinish(s)
+		}
+	}
 	return s
 }

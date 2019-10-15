@@ -3,6 +3,7 @@ module github.com/but80/voispire
 go 1.12
 
 require (
+	github.com/but80/simplevid-go v0.1.0
 	github.com/comail/colog v0.0.0-20160416085026-fba8e7b1f46c
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/hajimehoshi/oto v0.4.0
@@ -18,4 +19,5 @@ require (
 	github.com/xlab/closer v0.0.0-20161113214103-89cd22812c4f
 	golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898
 	gonum.org/v1/gonum v0.0.0-20191009222026-5d5638e6749a
+	gonum.org/v1/plot v0.0.0-20190515093506-e2840ee46a6b
 )

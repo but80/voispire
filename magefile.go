@@ -146,3 +146,8 @@ func BuildProf2() error {
 func ViewProf() error {
 	return runVWithArgs("go", "tool", "pprof", "-http=:", "voispire.exe", "cpu.pprof")
 }
+
+// Build program with analyzer
+func BuildAnalyzer() error {
+	return runVWithArgs("go", "build", "-tags", "analyzer", "./cmd/voispire")
+}

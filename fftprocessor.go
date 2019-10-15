@@ -13,6 +13,8 @@ type fftProcessor struct {
 	src       []float64
 	width     int
 	processor func([]complex128, []float64) []complex128
+	OnProcess func([]float64, []float64, []complex128, []complex128)
+	OnFinish  func()
 }
 
 func newFFTProcessor(src []float64, width int, processor func([]complex128, []float64) []complex128) *fftProcessor {
@@ -55,16 +57,27 @@ func (s *fftProcessor) Start() {
 				wave[i] = src[i] * w
 			}
 			s.fft.Coefficients(spec, wave)
-			spec2 := s.processor(spec, wave)
-			s.fft.Sequence(result, spec2)
+			var spec0 []complex128
+			if s.OnProcess != nil {
+				spec0 = make([]complex128, len(spec))
+				copy(spec0, spec)
+			}
+			spec = s.processor(spec, wave)
+			s.fft.Sequence(result, spec)
 			for i, v := range result {
 				result[i] = v * ampCoef
+			}
+			if s.OnProcess != nil {
+				s.OnProcess(wave, result, spec0, spec)
 			}
 			prev := resultPrev[step:]
 			for i := 0; i < step; i++ {
 				s.output <- prev[i] + result[i]
 			}
 			result, resultPrev = resultPrev, result
+		}
+		if s.OnFinish != nil {
+			s.OnFinish()
 		}
 		close(s.output)
 	}()
