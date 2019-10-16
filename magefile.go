@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
@@ -144,7 +145,11 @@ func BuildProf2() error {
 
 // View the result of profiling
 func ViewProf() error {
-	return runVWithArgs("go", "tool", "pprof", "-http=:", "voispire.exe", "cpu.pprof")
+	bin := "voispire"
+	if runtime.GOOS == "windows" {
+		bin += ".exe"
+	}
+	return runVWithArgs("go", "tool", "pprof", "-http=:", bin, "cpu.pprof")
 }
 
 // Build program with analyzer

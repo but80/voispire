@@ -12,7 +12,7 @@ const (
 )
 
 type f0Splitter struct {
-	input       chan float64
+	input       <-chan float64
 	output      chan buffer.Shape
 	f0          []float64
 	fs          float64

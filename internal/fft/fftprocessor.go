@@ -1,4 +1,4 @@
-package voispire
+package fft
 
 import (
 	"log"
@@ -7,17 +7,25 @@ import (
 	"gonum.org/v1/gonum/fourier"
 )
 
+type FFTProcessor interface {
+	Output() <-chan float64
+	Width() int
+	OnProcess(func(wave0, wave1 []float64, spec0, spec1 []complex128))
+	OnFinish(func())
+	Start()
+}
+
 type fftProcessor struct {
 	fft       *fourier.FFT
 	output    chan float64
 	src       []float64
 	width     int
-	processor func([]complex128) []complex128
-	OnProcess func([]float64, []float64, []complex128, []complex128)
-	OnFinish  func()
+	processor func([]complex128, []float64) []complex128
+	onProcess func([]float64, []float64, []complex128, []complex128)
+	onFinish  func()
 }
 
-func newFFTProcessor(src []float64, width int, processor func([]complex128) []complex128) *fftProcessor {
+func NewFFTProcessor(src []float64, width int, processor func([]complex128, []float64) []complex128) FFTProcessor {
 	if width < 4 {
 		width = 4
 	}
@@ -31,6 +39,22 @@ func newFFTProcessor(src []float64, width int, processor func([]complex128) []co
 	}
 }
 
+func (s *fftProcessor) Output() <-chan float64 {
+	return s.output
+}
+
+func (s *fftProcessor) Width() int {
+	return s.width
+}
+
+func (s *fftProcessor) OnProcess(callback func(wave0, wave1 []float64, spec0, spec1 []complex128)) {
+	s.onProcess = callback
+}
+
+func (s *fftProcessor) OnFinish(callback func()) {
+	s.onFinish = callback
+}
+
 func (s *fftProcessor) Start() {
 	go func() {
 		log.Print("debug: fftProcessor goroutine is started")
@@ -39,7 +63,6 @@ func (s *fftProcessor) Start() {
 		spec := make([]complex128, s.width/2+1)
 		resultPrev := make([]float64, s.width)
 		result := make([]float64, s.width)
-		wave := make([]float64, s.width)
 		ampCoef := .5 / float64(s.width)
 		n0 := len(s.src)
 		n := n0
@@ -52,23 +75,20 @@ func (s *fftProcessor) Start() {
 		}
 		for i := 0; i < n0; i += step {
 			// log.Printf("debug: fftProcessor %d", i)
-			src := s.src[i : i+s.width]
-			for i, w := range win {
-				wave[i] = src[i] * w
-			}
+			wave := s.src[i : i+s.width]
 			s.fft.Coefficients(spec, wave)
 			var spec0 []complex128
-			if s.OnProcess != nil {
+			if s.onProcess != nil {
 				spec0 = make([]complex128, len(spec))
 				copy(spec0, spec)
 			}
-			spec = s.processor(spec)
+			spec = s.processor(spec, wave)
 			s.fft.Sequence(result, spec)
-			for i, v := range result {
-				result[i] = v * ampCoef
+			for i, w := range win {
+				result[i] *= ampCoef * w
 			}
-			if s.OnProcess != nil {
-				s.OnProcess(wave, result, spec0, spec)
+			if s.onProcess != nil {
+				s.onProcess(wave, result, spec0, spec)
 			}
 			prev := resultPrev[step:]
 			for i := 0; i < step; i++ {
@@ -76,8 +96,8 @@ func (s *fftProcessor) Start() {
 			}
 			result, resultPrev = resultPrev, result
 		}
-		if s.OnFinish != nil {
-			s.OnFinish()
+		if s.onFinish != nil {
+			s.onFinish()
 		}
 		close(s.output)
 	}()

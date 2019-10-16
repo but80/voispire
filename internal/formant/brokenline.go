@@ -1,8 +1,10 @@
-package voispire
+package formant
 
 import (
 	"math/cmplx"
 	"sort"
+
+	"github.com/but80/voispire/internal/fft"
 )
 
 // https://synsinger.wordpress.com/2015/11/21/pitch-shifting-using-a-spectral-envelope/
@@ -12,56 +14,53 @@ type peak struct {
 	level float64
 }
 
-type formantShifter struct {
-	*fftProcessor
+type brokenlineShifter struct {
+	fft.FFTProcessor
 	width      int
 	fs         int
 	shiftInv   float64
 	maxPeakNum int
 	ampBuf     []float64
-	envBuf     []float64
 	peaksBuf   []peak
+	envelope   []float64
 }
 
-var onFormantFFTProcess func(*formantShifter, []float64, []float64, []complex128, []complex128)
-var onFormantFFTFinish func(*formantShifter)
+func (s *brokenlineShifter) Fs() int {
+	return s.fs
+}
 
-func newFormantShifter(src []float64, fs, width int, shift float64) *formantShifter {
-	shiftInv := 1.0 / shift
+func (s *brokenlineShifter) LastEnvelope() []float64 {
+	return s.envelope
+}
+
+func NewBrokenlineShifter(src []float64, fs, width int, shift float64) FormantShifter {
 	maxPeakNum := 100
-	s := &formantShifter{
+	s := &brokenlineShifter{
 		width:    width,
 		fs:       fs,
 		ampBuf:   make([]float64, width/2+1),
-		envBuf:   make([]float64, width/2+1),
 		peaksBuf: make([]peak, 0, maxPeakNum),
+		envelope: make([]float64, width/2+1),
 	}
-	s.fftProcessor = newFFTProcessor(src, width, func(spec []complex128) []complex128 {
+	s.FFTProcessor = fft.NewFFTProcessor(src, width, func(spec []complex128, wave []float64) []complex128 {
 		if len(spec) <= 4 {
 			return spec
 		}
-		n := len(spec)
 		peaks := s.findPeaks(spec, maxPeakNum)
 		env := s.peaksToEnvelope(peaks)
-		for i := 0; i < n; i++ {
-			j := int(float64(i) * shiftInv)
-			if n <= j {
-				j = n - 1
-			}
-			spec[i] *= complex(env[j]/env[i], .0)
-		}
+		applyEnvelopeShift(spec, env, shift)
 		return spec
 	})
-	s.fftProcessor.OnProcess = func(wave0, wave1 []float64, spec0, spec1 []complex128) {
-		if onFormantFFTProcess != nil {
-			onFormantFFTProcess(s, wave0, wave1, spec0, spec1)
+	s.FFTProcessor.OnProcess(func(wave0, wave1 []float64, spec0, spec1 []complex128) {
+		if onFFTProcess != nil {
+			onFFTProcess(s, wave0, wave1, spec0, spec1)
 		}
-	}
-	s.fftProcessor.OnFinish = func() {
-		if onFormantFFTFinish != nil {
-			onFormantFFTFinish(s)
+	})
+	s.FFTProcessor.OnFinish(func() {
+		if onFFTFinish != nil {
+			onFFTFinish(s)
 		}
-	}
+	})
 	return s
 }
 
@@ -76,7 +75,7 @@ func findPeak(spec []float64) peak {
 	return result
 }
 
-func (s *formantShifter) findPeaks(spec []complex128, peakNum int) []peak {
+func (s *brokenlineShifter) findPeaks(spec []complex128, peakNum int) []peak {
 	n := len(spec)
 	amp := s.ampBuf
 	for i, v := range spec {
@@ -105,8 +104,8 @@ func (s *formantShifter) findPeaks(spec []complex128, peakNum int) []peak {
 	return peaks
 }
 
-func (s *formantShifter) peaksToEnvelope(peaks []peak) []float64 {
-	result := s.envBuf
+func (s *brokenlineShifter) peaksToEnvelope(peaks []peak) []float64 {
+	result := s.envelope
 	p0 := peak{index: 0, level: peaks[0].level}
 	var p1 peak
 	for i := 0; i <= len(peaks); i++ {
