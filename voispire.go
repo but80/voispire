@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/but80/voispire/internal/buffer"
+	"github.com/but80/voispire/internal/formant"
 	"github.com/but80/voispire/internal/wav"
 	"github.com/but80/voispire/internal/world"
 	"github.com/hajimehoshi/oto"
@@ -13,7 +14,7 @@ import (
 	"golang.org/x/xerrors"
 )
 
-func join(input chan buffer.Shape) chan float64 {
+func join(input <-chan buffer.Shape) <-chan float64 {
 	out := make(chan float64, 4096)
 	go func() {
 		msg := 0
@@ -29,7 +30,7 @@ func join(input chan buffer.Shape) chan float64 {
 	return out
 }
 
-func render(rate int, in chan float64) (chan struct{}, error) {
+func render(rate int, in <-chan float64) (<-chan struct{}, error) {
 	ctx, err := oto.NewContext(rate, 1, 2, 4096)
 	if err != nil {
 		return nil, err
@@ -60,7 +61,7 @@ const (
 )
 
 // Demo は、デモ実装です。
-func Demo(transpose, formant, framePeriod float64, rate int, infile, outfile string) error {
+func Demo(transpose, formantShift, framePeriod float64, rate int, infile, outfile string) error {
 	src, fs, err := wav.Load(infile)
 	if err != nil {
 		return xerrors.Errorf("音声ファイルの読み込みに失敗しました: %w", err)
@@ -79,22 +80,22 @@ func Demo(transpose, formant, framePeriod float64, rate int, infile, outfile str
 	}
 
 	pitchCoef := math.Pow(2.0, transpose/12.0)
-	formantCoef := math.Pow(2.0, (formant-transpose)/12.0)
+	formantCoef := math.Pow(2.0, (formantShift-transpose)/12.0)
 
-	mod1 := newFormantShifter(src, fs, 1024, formantCoef)
+	mod1 := formant.NewLPCShifter(src, fs, 1024, formantCoef)
 	var mod2 *f0Splitter
 	var mod3 *stretcher
 	var lastmod interface{ Start() }
-	var outCh chan float64
+	var outCh <-chan float64
 	if transpose == 0 {
 		log.Print("info: フォルマントシフタのみを使用します")
-		outCh = mod1.output
+		outCh = mod1.Output()
 		lastmod = mod1
 	} else {
 		log.Print("info: フォルマントシフタとストレッチャを使用します")
 		mod2 = newF0Splitter(f0, float64(fs), framePeriod)
 		mod3 = newStretcher(pitchCoef, 1.0, float64(fsOut)/float64(fs))
-		mod2.input = mod1.output
+		mod2.input = mod1.Output()
 		mod3.input = mod2.output
 		outCh = join(mod3.output)
 		mod1.Start()

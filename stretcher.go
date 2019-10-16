@@ -10,7 +10,7 @@ import (
 // pitchCoef, speedCoef, resampleCoef がすべて 1 のとき、オリジナルと同じ波形となります。
 type stretcher struct {
 	output       chan buffer.Shape
-	input        chan buffer.Shape
+	input        <-chan buffer.Shape
 	pitchCoef    float64
 	speedCoef    float64
 	resampleCoef float64
