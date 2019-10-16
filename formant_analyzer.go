@@ -9,6 +9,7 @@ import (
 	"log"
 	"math"
 	"math/cmplx"
+	"sync"
 
 	"github.com/but80/simplevid-go"
 	"gonum.org/v1/plot"
@@ -17,34 +18,27 @@ import (
 )
 
 const filename = "analyzer.mp4"
-const frameLenLimit = 60
+const frameLenLimit = 180
+const slowPlayRate = 4
 
 var vidEncoder simplevid.Encoder
-var imageCh chan image.Image
 var vidOpts = simplevid.EncoderOptions{
 	Width:   960,
 	Height:  540,
-	BitRate: 4 * 1024 * 1024,
+	BitRate: 8 * 1024 * 1024,
 	GOPSize: 10,
 	FPS:     30,
 }
+var analyzerWait = make(chan struct{})
+var analyzerImageCh = make(chan image.Image, 100)
 
 func init() {
-	wait := make(chan struct{})
 	onFormantFFTProcess = onFormantFFTProcessImpl
 	onFormantFFTFinish = func(s *formantShifter) {
-		close(imageCh)
+		close(analyzerImageCh)
 		// log.Printf("debug: waiting video encoder finishes")
-		<-wait
+		<-analyzerWait
 	}
-	vidEncoder = simplevid.NewCustomEncoder(vidOpts, onFrame)
-	imageCh = make(chan image.Image, 100)
-	go func() {
-		if err := vidEncoder.EncodeToFile(filename); err != nil {
-			panic(err)
-		}
-		close(wait)
-	}()
 }
 
 func toPlotLine(data []float64, fs int, c color.Color) *plotter.Line {
@@ -91,13 +85,25 @@ func complexToFloatSlice(data []complex128) []float64 {
 	return result
 }
 
-var fftProcessFrame = 0
+var analyzerFFTFrame = 0
+var onFormantFFTProcessImplOnce sync.Once
 
 func onFormantFFTProcessImpl(s *formantShifter, wave0, wave1 []float64, spec0, spec1 []complex128) {
-	if frameLenLimit <= fftProcessFrame {
+	onFormantFFTProcessImplOnce.Do(func() {
+		vidOpts.FPS = int(float64(s.fs)/(float64(s.width)/2)/float64(slowPlayRate) + .5)
+		vidEncoder = simplevid.NewCustomEncoder(vidOpts, onFrame)
+		log.Printf("debug: video option: %#v", vidOpts)
+		go func() {
+			if err := vidEncoder.EncodeToFile(filename); err != nil {
+				panic(err)
+			}
+			close(analyzerWait)
+		}()
+	})
+	if 0 < frameLenLimit && frameLenLimit <= analyzerFFTFrame {
 		return
 	}
-	log.Printf("debug: FFT process frame %d", fftProcessFrame)
+	log.Printf("debug: FFT process frame %d", analyzerFFTFrame)
 
 	p, err := plot.New()
 	if err != nil {
@@ -118,12 +124,12 @@ func onFormantFFTProcessImpl(s *formantShifter, wave0, wave1 []float64, spec0, s
 	if err != nil {
 		panic(err)
 	}
-	imageCh <- img
-	fftProcessFrame++
+	analyzerImageCh <- img
+	analyzerFFTFrame++
 }
 
 func onFrame(e simplevid.Encoder) bool {
-	img0, ok := <-imageCh
+	img0, ok := <-analyzerImageCh
 	if !ok {
 		return false
 	}
