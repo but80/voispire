@@ -39,7 +39,6 @@ func (s *fftProcessor) Start() {
 		spec := make([]complex128, s.width/2+1)
 		resultPrev := make([]float64, s.width)
 		result := make([]float64, s.width)
-		wave := make([]float64, s.width)
 		ampCoef := .5 / float64(s.width)
 		n0 := len(s.src)
 		n := n0
@@ -52,10 +51,7 @@ func (s *fftProcessor) Start() {
 		}
 		for i := 0; i < n0; i += step {
 			// log.Printf("debug: fftProcessor %d", i)
-			src := s.src[i : i+s.width]
-			for i, w := range win {
-				wave[i] = src[i] * w
-			}
+			wave := s.src[i : i+s.width]
 			s.fft.Coefficients(spec, wave)
 			var spec0 []complex128
 			if s.OnProcess != nil {
@@ -64,8 +60,8 @@ func (s *fftProcessor) Start() {
 			}
 			spec = s.processor(spec, wave)
 			s.fft.Sequence(result, spec)
-			for i, v := range result {
-				result[i] = v * ampCoef
+			for i, w := range win {
+				result[i] *= ampCoef * w
 			}
 			if s.OnProcess != nil {
 				s.OnProcess(wave, result, spec0, spec)
