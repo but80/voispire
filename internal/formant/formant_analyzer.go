@@ -21,7 +21,6 @@ const filename = "analyzer.mp4"
 const frameLenLimit = 60
 const slowPlayRate = 4
 
-var vidEncoder simplevid.Encoder
 var vidOpts = simplevid.EncoderOptions{
 	Width:   960,
 	Height:  540,
@@ -94,10 +93,10 @@ func onFTProcessImpl(obj interface{}, wave0, wave1 []float64, spec0, spec1 []com
 	s := obj.(FormantShifter)
 	onFormantFFTProcessImplOnce.Do(func() {
 		vidOpts.FPS = int(float64(s.Fs())/(float64(s.Width())/2)/float64(slowPlayRate) + .5)
-		vidEncoder = simplevid.NewCustomEncoder(vidOpts, onFrame)
+		encoder := simplevid.NewImageEncoder(vidOpts, analyzerImageCh)
 		log.Printf("debug: video option: %#v", vidOpts)
 		go func() {
-			if err := vidEncoder.EncodeToFile(filename); err != nil {
+			if err := encoder.EncodeToFile(filename); err != nil {
 				panic(err)
 			}
 			close(analyzerWait)
@@ -131,20 +130,4 @@ func onFTProcessImpl(obj interface{}, wave0, wave1 []float64, spec0, spec1 []com
 	}
 	analyzerImageCh <- img
 	analyzerFFTFrame++
-}
-
-func onFrame(e simplevid.Encoder) bool {
-	img0, ok := <-analyzerImageCh
-	if !ok {
-		return false
-	}
-	img := img0.(*image.RGBA)
-	opts := e.Options()
-	for y := 0; y < opts.Height; y++ {
-		for x := 0; x < opts.Width; x++ {
-			rgba := img.RGBAAt(x, y)
-			e.SetRGB(x, y, int(rgba.R), int(rgba.G), int(rgba.B))
-		}
-	}
-	return true
 }

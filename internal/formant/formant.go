@@ -21,8 +21,8 @@ func applyEnvelopeShift(spec []complex128, env []float64, shift float64) {
 	n := len(spec)
 	for i := 1; i < n; i++ {
 		j := float64(i) / shift
-		if j<1 {
-			j=1
+		if j < 1 {
+			j = 1
 		}
 		ji := int(j)
 		jf := j - float64(ji)

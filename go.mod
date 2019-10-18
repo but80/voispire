@@ -3,7 +3,7 @@ module github.com/but80/voispire
 go 1.12
 
 require (
-	github.com/but80/simplevid-go v0.1.0
+	github.com/but80/simplevid-go v0.2.0
 	github.com/comail/colog v0.0.0-20160416085026-fba8e7b1f46c
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/hajimehoshi/oto v0.4.0

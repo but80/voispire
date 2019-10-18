@@ -45,7 +45,7 @@ func NewLPCShifter(src []float64, fs, width int, shift float64) FormantShifter {
 		s.envelope = env
 
 		df := (float64(s.fs) / 2) / float64(n)
-		i0 := int(f0Floor/df)
+		i0 := int(f0Floor / df)
 		// 1st max
 		for ; i0 < n; i0++ {
 			if env[i0] < env[i0-1] {
