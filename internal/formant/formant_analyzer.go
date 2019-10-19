@@ -48,7 +48,7 @@ func toPlotLine(data []float64, fs int, c color.Color) *plotter.Line {
 		xys[i].X = float64(i+1) * xr
 		xys[i].Y = -96
 		if 0 < v {
-			xys[i].Y = 20 * math.Log10(v/127)
+			xys[i].Y = 20 * math.Log10(v)
 		}
 	}
 	line, _ := plotter.NewLine(xys)
@@ -117,8 +117,8 @@ func onFTProcessImpl(obj interface{}, wave0, wave1 []float64, spec0, spec1 []com
 	p.Add(toPlotLine(complexToFloatSlice(spec1), s.Fs(), color.RGBA{R: 0, G: 96, B: 255, A: 255}))
 
 	p.Title.Text = "voispire"
-	p.X.Scale = plot.LogScale{}
-	p.X.Tick.Marker = plot.LogTicks{}
+	// p.X.Scale = plot.LogScale{}
+	// p.X.Tick.Marker = plot.LogTicks{}
 	p.X.Label.Text = "Freq."
 	p.Y.Label.Text = "Amp."
 	p.Y.Min = -90

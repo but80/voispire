@@ -24,9 +24,10 @@ func makeImpulseSpec(fft *fourier.FFT, size int) []float64 {
 	impulse := make([]float64, size)
 	impulse[0] = 1.0
 	spec := fft.Coefficients(nil, impulse)
+	r := 1 / float64(fft.Len())
 	result := make([]float64, len(spec))
 	for i, v := range spec {
-		result[i] = cmplx.Abs(v)
+		result[i] = cmplx.Abs(v) * r
 	}
 	return result
 }
