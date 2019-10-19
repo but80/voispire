@@ -47,7 +47,8 @@ func NewCepstralShifter(src []float64, fs, width int, shift float64) FormantShif
 			panic("wrong length")
 		}
 
-		n := 50
+		n := 128
+
 		for i, v := range spec {
 			s.specDb[i] = complex(math.Log(cmplx.Abs(v)), 0)
 		}
@@ -61,6 +62,7 @@ func NewCepstralShifter(src []float64, fs, width int, shift float64) FormantShif
 			v := s.envelopeDb[i]
 			s.envelope[i] = math.Pow(math.E, real(v)*r)
 		}
+		flattenLowerCoefs(s.envelope, s.fs)
 
 		applyEnvelopeShift(spec, s.envelope, shift)
 		return spec
