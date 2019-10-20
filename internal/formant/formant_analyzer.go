@@ -17,28 +17,23 @@ import (
 	"gonum.org/v1/plot/vg"
 )
 
-const filename = "analyzer.mp4"
-const frameLenLimit = 60
-const slowPlayRate = 4
+const (
+	analyzerFilename     = "analyzer.mp4"
+	analyzerFrameLimit   = 60
+	analyzerSlowPlayRate = 4
+)
 
-var vidOpts = simplevid.EncoderOptions{
-	Width:   960,
-	Height:  540,
-	BitRate: 8 * 1024 * 1024,
-	GOPSize: 10,
-	FPS:     30,
-}
-var analyzerWait = make(chan struct{})
-var analyzerImageCh = make(chan image.Image, 100)
-
-func init() {
-	onFFTProcess = onFTProcessImpl
-	onFFTFinish = func(obj interface{}) {
-		close(analyzerImageCh)
-		// log.Printf("debug: waiting video encoder finishes")
-		<-analyzerWait
+var (
+	analyzerVidOpts = simplevid.EncoderOptions{
+		Width:   960,
+		Height:  540,
+		BitRate: 8 * 1024 * 1024,
+		GOPSize: 10,
+		FPS:     30,
 	}
-}
+	analyzerWait    = make(chan struct{})
+	analyzerImageCh = make(chan image.Image, 100)
+)
 
 func toPlotLine(data []float64, fs int, c color.Color) *plotter.Line {
 	data = data[1:]
@@ -60,8 +55,8 @@ func toPlotLine(data []float64, fs int, c color.Color) *plotter.Line {
 }
 
 func toImage(p *plot.Plot) (image.Image, error) {
-	w := vg.Length(vidOpts.Width) * vg.Inch / 96
-	h := vg.Length(vidOpts.Height) * vg.Inch / 96
+	w := vg.Length(analyzerVidOpts.Width) * vg.Inch / 96
+	h := vg.Length(analyzerVidOpts.Height) * vg.Inch / 96
 	writer, err := p.WriterTo(w, h, "tiff")
 	if err != nil {
 		return nil, err
@@ -78,7 +73,7 @@ func toImage(p *plot.Plot) (image.Image, error) {
 	return img, nil
 }
 
-func complexToFloatSlice(data []complex128) []float64 {
+func cmplxAbs(data []complex128) []float64 {
 	result := make([]float64, len(data))
 	for i, v := range data {
 		result[i] = cmplx.Abs(v)
@@ -86,35 +81,34 @@ func complexToFloatSlice(data []complex128) []float64 {
 	return result
 }
 
-var analyzerFFTFrame = 0
-var onFormantFFTProcessImplOnce sync.Once
+var analyzerFrameCounter = 0
+var analyzerFrameOnce sync.Once
 
-func onFTProcessImpl(obj interface{}, wave0, wave1 []float64, spec0, spec1 []complex128) {
-	s := obj.(FormantShifter)
-	onFormantFFTProcessImplOnce.Do(func() {
-		vidOpts.FPS = int(float64(s.Fs())/(float64(s.Width())/2)/float64(slowPlayRate) + .5)
-		encoder := simplevid.NewImageEncoder(vidOpts, analyzerImageCh)
-		log.Printf("debug: video option: %#v", vidOpts)
+func analyzerFrame(data *analyzerData) {
+	analyzerFrameOnce.Do(func() {
+		analyzerVidOpts.FPS = int(float64(data.fs)/(float64(data.fftWidth)/2)/float64(analyzerSlowPlayRate) + .5)
+		encoder := simplevid.NewImageEncoder(analyzerVidOpts, analyzerImageCh)
+		log.Printf("debug: video option: %#v", analyzerVidOpts)
 		go func() {
-			if err := encoder.EncodeToFile(filename); err != nil {
+			if err := encoder.EncodeToFile(analyzerFilename); err != nil {
 				panic(err)
 			}
 			close(analyzerWait)
 		}()
 	})
-	if 0 < frameLenLimit && frameLenLimit <= analyzerFFTFrame {
+	if 0 < analyzerFrameLimit && analyzerFrameLimit <= analyzerFrameCounter {
 		return
 	}
-	log.Printf("debug: FFT process frame %d", analyzerFFTFrame)
+	log.Printf("debug: FFT process frame %d", analyzerFrameCounter)
 
 	p, err := plot.New()
 	if err != nil {
 		panic(err)
 	}
 
-	p.Add(toPlotLine(complexToFloatSlice(spec0), s.Fs(), color.RGBA{R: 255, G: 128, B: 128, A: 255}))
-	p.Add(toPlotLine(s.LastEnvelope(), s.Fs(), color.RGBA{R: 255, G: 0, B: 0, A: 255}))
-	p.Add(toPlotLine(complexToFloatSlice(spec1), s.Fs(), color.RGBA{R: 0, G: 96, B: 255, A: 255}))
+	p.Add(toPlotLine(cmplxAbs(data.spec1), data.fs, color.RGBA{R: 0, G: 192, B: 255, A: 255}))
+	p.Add(toPlotLine(cmplxAbs(data.spec0), data.fs, color.RGBA{R: 255, G: 128, B: 0, A: 255}))
+	p.Add(toPlotLine(data.envelope, data.fs, color.RGBA{R: 255, G: 0, B: 0, A: 255}))
 
 	p.Title.Text = "voispire"
 	// p.X.Scale = plot.LogScale{}
@@ -129,5 +123,11 @@ func onFTProcessImpl(obj interface{}, wave0, wave1 []float64, spec0, spec1 []com
 		panic(err)
 	}
 	analyzerImageCh <- img
-	analyzerFFTFrame++
+	analyzerFrameCounter++
+}
+
+func analyzerFinish() {
+	close(analyzerImageCh)
+	// log.Printf("debug: waiting video encoder finishes")
+	<-analyzerWait
 }

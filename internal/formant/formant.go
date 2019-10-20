@@ -7,12 +7,16 @@ import (
 
 type FormantShifter interface {
 	fft.FFTProcessor
-	Fs() int
-	LastEnvelope() []float64
 }
 
-var onFFTProcess func(interface{}, []float64, []float64, []complex128, []complex128)
-var onFFTFinish func(interface{})
+type analyzerData struct {
+	fs       int
+	fftWidth int
+	wave0    []float64
+	envelope []float64
+	spec0    []complex128
+	spec1    []complex128
+}
 
 const f0Floor = 70
 
@@ -29,12 +33,12 @@ func flattenLowerCoefs(env []float64, fs int) {
 			break
 		}
 	}
-	// 1st min
-	for ; i0 < n; i0++ {
-		if env[i0-1] < env[i0] {
-			break
-		}
-	}
+	// // 1st min
+	// for ; i0 < n; i0++ {
+	// 	if env[i0-1] < env[i0] {
+	// 		break
+	// 	}
+	// }
 	// // 2nd max
 	// for ; i0 < n; i0++ {
 	// 	if env[i0] < env[i0-1] {
@@ -54,11 +58,12 @@ func lerp(a, b, t float64) float64 {
 	return a*(1-t) + b*t
 }
 
-func applyEnvelopeShift(spec []complex128, env []float64, shift float64) {
-	n := len(spec)
+func applyEnvelopeShift(spec1, spec0 []complex128, env []float64, shift float64) {
+	n := len(spec0)
 	if n != len(env) {
 		panic(xerrors.Errorf("Envelope size mismatch (%d != %d)", n, len(env)))
 	}
+	spec1[0] = spec0[0]
 	for i := 1; i < n; i++ {
 		j := float64(i) / shift
 		if j < 1 {
@@ -71,6 +76,6 @@ func applyEnvelopeShift(spec []complex128, env []float64, shift float64) {
 			jf = 1
 		}
 		e := lerp(env[ji], env[ji+1], jf)
-		spec[i] *= complex(e/env[i], .0)
+		spec1[i] = spec0[i] * complex(e/env[i], .0)
 	}
 }

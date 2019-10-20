@@ -23,14 +23,7 @@ type brokenlineShifter struct {
 	ampBuf     []float64
 	peaksBuf   []peak
 	envelope   []float64
-}
-
-func (s *brokenlineShifter) Fs() int {
-	return s.fs
-}
-
-func (s *brokenlineShifter) LastEnvelope() []float64 {
-	return s.envelope
+	spec1      []complex128
 }
 
 func NewBrokenlineShifter(src []float64, fs, width int, shift float64) FormantShifter {
@@ -41,26 +34,26 @@ func NewBrokenlineShifter(src []float64, fs, width int, shift float64) FormantSh
 		ampBuf:   make([]float64, width/2+1),
 		peaksBuf: make([]peak, 0, maxPeakNum),
 		envelope: make([]float64, width/2+1),
+		spec1:    make([]complex128, width/2+1),
 	}
-	s.FFTProcessor = fft.NewFFTProcessor(src, width, func(spec []complex128, wave []float64) []complex128 {
-		if len(spec) <= 4 {
-			return spec
+	s.FFTProcessor = fft.NewFFTProcessor(src, width, func(spec0 []complex128, wave0 []float64) []complex128 {
+		if len(spec0) <= 4 {
+			return spec0
 		}
-		peaks := s.findPeaks(spec, maxPeakNum)
+		peaks := s.findPeaks(spec0, maxPeakNum)
 		env := s.peaksToEnvelope(peaks)
-		applyEnvelopeShift(spec, env, shift)
-		return spec
+		applyEnvelopeShift(s.spec1, spec0, env, shift)
+		analyzerFrame(&analyzerData{
+			fs:       fs,
+			fftWidth: width,
+			wave0:    wave0,
+			envelope: s.envelope,
+			spec0:    spec0,
+			spec1:    s.spec1,
+		})
+		return s.spec1
 	})
-	s.FFTProcessor.OnProcess(func(wave0, wave1 []float64, spec0, spec1 []complex128) {
-		if onFFTProcess != nil {
-			onFFTProcess(s, wave0, wave1, spec0, spec1)
-		}
-	})
-	s.FFTProcessor.OnFinish(func() {
-		if onFFTFinish != nil {
-			onFFTFinish(s)
-		}
-	})
+	s.FFTProcessor.OnFinish(analyzerFinish)
 	return s
 }
 

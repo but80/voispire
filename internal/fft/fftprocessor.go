@@ -10,8 +10,6 @@ import (
 
 type FFTProcessor interface {
 	Output() <-chan float64
-	Width() int
-	OnProcess(func(wave0, wave1 []float64, spec0, spec1 []complex128))
 	OnFinish(func())
 	Start()
 }
@@ -22,7 +20,6 @@ type fftProcessor struct {
 	src       []float64
 	width     int
 	processor func([]complex128, []float64) []complex128
-	onProcess func([]float64, []float64, []complex128, []complex128)
 	onFinish  func()
 }
 
@@ -44,14 +41,6 @@ func (s *fftProcessor) Output() <-chan float64 {
 	return s.output
 }
 
-func (s *fftProcessor) Width() int {
-	return s.width
-}
-
-func (s *fftProcessor) OnProcess(callback func(wave0, wave1 []float64, spec0, spec1 []complex128)) {
-	s.onProcess = callback
-}
-
 func (s *fftProcessor) OnFinish(callback func()) {
 	s.onFinish = callback
 }
@@ -60,14 +49,14 @@ func (s *fftProcessor) Start() {
 	go func() {
 		log.Print("debug: fftProcessor goroutine is started")
 		step := s.width >> 1
-		win := window.Hann(s.width)
+		win := window.Bartlett(s.width)
 		for i, w := range win {
 			win[i] = math.Sqrt(w)
 		}
-		wave := make([]float64, s.width)
-		spec := make([]complex128, s.width/2+1)
+		wave0 := make([]float64, s.width)
+		spec0 := make([]complex128, s.width/2+1)
 		resultPrev := make([]float64, s.width)
-		result := make([]float64, s.width)
+		wave1 := make([]float64, s.width)
 		n0 := len(s.src)
 		n := n0
 		if n%step != 0 {
@@ -80,31 +69,23 @@ func (s *fftProcessor) Start() {
 		for i := 0; i < n0; i += step {
 			// log.Printf("debug: fftProcessor %d", i)
 			for j, w := range win {
-				wave[j] = s.src[i+j] * w
+				wave0[j] = s.src[i+j] * w
 			}
-			s.fft.Coefficients(spec, wave)
+			s.fft.Coefficients(spec0, wave0)
 			r := complex(1/float64(s.fft.Len()), 0)
-			for i, v := range spec {
-				spec[i] = v * r
+			for i, v := range spec0 {
+				spec0[i] = v * r
 			}
-			var spec0 []complex128
-			if s.onProcess != nil {
-				spec0 = make([]complex128, len(spec))
-				copy(spec0, spec)
-			}
-			spec = s.processor(spec, wave)
-			s.fft.Sequence(result, spec)
+			spec1 := s.processor(spec0, wave0)
+			s.fft.Sequence(wave1, spec1)
 			for i, w := range win {
-				result[i] *= w
-			}
-			if s.onProcess != nil {
-				s.onProcess(wave, result, spec0, spec)
+				wave1[i] *= w
 			}
 			prev := resultPrev[step:]
 			for i := 0; i < step; i++ {
-				s.output <- prev[i] + result[i]
+				s.output <- prev[i] + wave1[i]
 			}
-			result, resultPrev = resultPrev, result
+			wave1, resultPrev = resultPrev, wave1
 		}
 		if s.onFinish != nil {
 			s.onFinish()

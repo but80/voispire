@@ -19,14 +19,7 @@ type cepstralShifter struct {
 	envelopeDb []complex128
 	specDb     []complex128
 	ceps       []float64
-}
-
-func (s *cepstralShifter) Fs() int {
-	return s.fs
-}
-
-func (s *cepstralShifter) LastEnvelope() []float64 {
-	return s.envelope
+	spec1      []complex128
 }
 
 func NewCepstralShifter(src []float64, fs, width int, shift float64) FormantShifter {
@@ -38,18 +31,19 @@ func NewCepstralShifter(src []float64, fs, width int, shift float64) FormantShif
 		envelopeDb: make([]complex128, width/2+1),
 		specDb:     make([]complex128, width/2+1),
 		ceps:       make([]float64, width),
+		spec1:      make([]complex128, width/2+1),
 	}
-	s.FFTProcessor = fft.NewFFTProcessor(src, width, func(spec []complex128, wave []float64) []complex128 {
-		if len(spec) <= 4 {
-			return spec
+	s.FFTProcessor = fft.NewFFTProcessor(src, width, func(spec0 []complex128, wave0 []float64) []complex128 {
+		if len(spec0) <= 4 {
+			return spec0
 		}
-		if len(spec) != len(s.specDb) {
+		if len(spec0) != len(s.specDb) {
 			panic("wrong length")
 		}
 
-		n := 128
+		n := 96
 
-		for i, v := range spec {
+		for i, v := range spec0 {
 			s.specDb[i] = complex(math.Log(cmplx.Abs(v)), 0)
 		}
 		s.cfft.Sequence(s.ceps, s.specDb)
@@ -64,18 +58,17 @@ func NewCepstralShifter(src []float64, fs, width int, shift float64) FormantShif
 		}
 		flattenLowerCoefs(s.envelope, s.fs)
 
-		applyEnvelopeShift(spec, s.envelope, shift)
-		return spec
+		applyEnvelopeShift(s.spec1, spec0, s.envelope, shift)
+		analyzerFrame(&analyzerData{
+			fs:       fs,
+			fftWidth: width,
+			wave0:    wave0,
+			envelope: s.envelope,
+			spec0:    spec0,
+			spec1:    s.spec1,
+		})
+		return s.spec1
 	})
-	s.FFTProcessor.OnProcess(func(wave0, wave1 []float64, spec0, spec1 []complex128) {
-		if onFFTProcess != nil {
-			onFFTProcess(s, wave0, wave1, spec0, spec1)
-		}
-	})
-	s.FFTProcessor.OnFinish(func() {
-		if onFFTFinish != nil {
-			onFFTFinish(s)
-		}
-	})
+	s.FFTProcessor.OnFinish(analyzerFinish)
 	return s
 }
