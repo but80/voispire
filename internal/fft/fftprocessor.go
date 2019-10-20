@@ -2,6 +2,7 @@ package fft
 
 import (
 	"log"
+	"math"
 
 	"github.com/mjibson/go-dsp/window"
 	"gonum.org/v1/gonum/fourier"
@@ -60,6 +61,10 @@ func (s *fftProcessor) Start() {
 		log.Print("debug: fftProcessor goroutine is started")
 		step := s.width >> 1
 		win := window.Hann(s.width)
+		for i, w := range win {
+			win[i] = math.Sqrt(w)
+		}
+		wave := make([]float64, s.width)
 		spec := make([]complex128, s.width/2+1)
 		resultPrev := make([]float64, s.width)
 		result := make([]float64, s.width)
@@ -74,7 +79,9 @@ func (s *fftProcessor) Start() {
 		}
 		for i := 0; i < n0; i += step {
 			// log.Printf("debug: fftProcessor %d", i)
-			wave := s.src[i : i+s.width]
+			for j, w := range win {
+				wave[j] = s.src[i+j] * w
+			}
 			s.fft.Coefficients(spec, wave)
 			r := complex(1/float64(s.fft.Len()), 0)
 			for i, v := range spec {

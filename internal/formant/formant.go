@@ -20,6 +20,9 @@ func flattenLowerCoefs(env []float64, fs int) {
 	n := len(env)
 	fn := float64(fs) / 2
 	i0 := int(float64(n) * f0Floor / fn)
+	if i0 == 0 {
+		return
+	}
 	// 1st max
 	for ; i0 < n; i0++ {
 		if env[i0] < env[i0-1] {
@@ -32,12 +35,12 @@ func flattenLowerCoefs(env []float64, fs int) {
 			break
 		}
 	}
-	// 2nd max
-	for ; i0 < n; i0++ {
-		if env[i0] < env[i0-1] {
-			break
-		}
-	}
+	// // 2nd max
+	// for ; i0 < n; i0++ {
+	// 	if env[i0] < env[i0-1] {
+	// 		break
+	// 	}
+	// }
 	if n <= i0 {
 		return
 	}
