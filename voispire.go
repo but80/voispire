@@ -82,7 +82,7 @@ func Demo(transpose, formantShift, framePeriod float64, rate int, infile, outfil
 	pitchCoef := math.Pow(2.0, transpose/12.0)
 	formantCoef := math.Pow(2.0, (formantShift-transpose)/12.0)
 
-	mod1 := formant.NewLPCShifter(src, fs, 1024, formantCoef)
+	mod1 := formant.NewCepstralShifter(src, fs, 1024, formantCoef)
 	var mod2 *f0Splitter
 	var mod3 *stretcher
 	var lastmod interface{ Start() }
