@@ -7,7 +7,7 @@ import (
 
 // FormantShifter は、フォルマントシフタのインタフェースです。
 type FormantShifter interface {
-	fft.FFTProcessor
+	fft.Processor
 }
 
 type analyzerData struct {

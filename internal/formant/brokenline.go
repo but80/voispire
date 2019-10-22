@@ -15,7 +15,7 @@ type peak struct {
 }
 
 type brokenlineShifter struct {
-	fft.FFTProcessor
+	fft.Processor
 	width      int
 	fs         int
 	shiftInv   float64
@@ -37,7 +37,7 @@ func NewBrokenlineShifter(src []float64, fs, width int, shift float64) FormantSh
 		envelope: make([]float64, width/2+1),
 		spec1:    make([]complex128, width/2+1),
 	}
-	s.FFTProcessor = fft.NewFFTProcessor(src, width, func(spec0 []complex128, wave0 []float64) []complex128 {
+	s.Processor = fft.NewProcessor(src, width, func(spec0 []complex128, wave0 []float64) []complex128 {
 		if len(spec0) <= 4 {
 			return spec0
 		}
@@ -54,7 +54,7 @@ func NewBrokenlineShifter(src []float64, fs, width int, shift float64) FormantSh
 		})
 		return s.spec1
 	})
-	s.FFTProcessor.OnFinish(analyzerFinish)
+	s.Processor.OnFinish(analyzerFinish)
 	return s
 }
 

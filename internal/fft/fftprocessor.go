@@ -2,15 +2,13 @@ package fft
 
 import (
 	"log"
-	"math"
 
-	"github.com/but80/voispire/internal/smath"
-	"github.com/but80/voispire/internal/window"
+	"github.com/but80/voispire/internal/series"
 	"gonum.org/v1/gonum/fourier"
 )
 
-// FFTProcessor は、FFT・逆FFTを用いて波形を加工する処理器です。
-type FFTProcessor interface {
+// Processor は、FFT・逆FFTを用いて波形を加工する処理器です。
+type Processor interface {
 	Output() <-chan float64
 	OnFinish(func())
 	Start()
@@ -25,8 +23,8 @@ type fftProcessor struct {
 	onFinish  func()
 }
 
-// NewFFTProcessor は、新しい FFTProcessor を作成します。
-func NewFFTProcessor(src []float64, width int, processor func([]complex128, []float64) []complex128) FFTProcessor {
+// NewProcessor は、新しい Processor を作成します。
+func NewProcessor(src []float64, width int, processor func([]complex128, []float64) []complex128) Processor {
 	if width < 4 {
 		width = 4
 	}
@@ -48,58 +46,39 @@ func (s *fftProcessor) OnFinish(callback func()) {
 	s.onFinish = callback
 }
 
-func easing(n int) []float64 {
-	return window.New(n, func(t float64) float64 {
-		u := t*2 - 1
-		c := math.Cos(u * math.Pi)
-		return (1 + smath.SignedSqrt(c)) * .5
-	})
-}
-
 func (s *fftProcessor) Start() {
 	go func() {
 		log.Print("debug: fftProcessor goroutine is started")
-		step := s.width >> 1
-		hann := window.Hann(s.width)
-		wave0 := make([]float64, s.width)
-		spec0 := make([]complex128, s.width/2+1)
-		resultPrev := make([]float64, s.width)
-		wave1 := make([]float64, s.width)
 
-		merge := easing(s.width)
-		for i, w := range window.Hamming(s.width) {
-			merge[i] /= w
-		}
+		step := s.width / 2                      // フレームをずらす幅（フレーム自体の幅の半分）
+		win := series.Hann(s.width)              // フレームを取り出す窓関数
+		wave0 := make([]float64, s.width)        // 1フレーム分のソース時間波形
+		spec0 := make([]complex128, s.width/2+1) // 1フレーム分のソース周波数スペクトル
+		wave1 := make([]float64, s.width)        // wave0 を加工した結果
+		wave1Prev := make([]float64, s.width)    // 直前のフレームの wave1
 
-		n0 := len(s.src)
-		n := n0
-		if n%step != 0 {
-			n = (n/step + 1) * step
-		}
-		n += step
-		for len(s.src) < n {
-			s.src = append(s.src, 0)
-		}
-		for i := 0; i < n0; i += step {
-			// log.Printf("debug: fftProcessor %d", i)
-			for j, w := range hann {
-				wave0[j] = s.src[i+j] * w
-			}
+		// ソースのスライス末尾を切りの良いところまで 0 で埋める
+		s.src = series.ExtendFloatSliceCeil(s.src, step)
+		s.src = series.ExtendFloatSlice(s.src, step)
+
+		for i := 0; i+step < len(s.src); i += step {
+			// 窓がけして周波数スペクトルを作成
+			win.Apply(wave0, s.src[i:])
 			s.fft.Coefficients(spec0, wave0)
-			r := complex(1/float64(s.fft.Len()), 0)
-			for i, v := range spec0 {
-				spec0[i] = v * r
-			}
+			series.CmplxDivFloatConst(spec0, spec0, float64(s.fft.Len())) // 振幅を調整
+
+			// 周波数スペクトルを加工処理
 			spec1 := s.processor(spec0, wave0)
+
+			// 時間領域に戻す
 			s.fft.Sequence(wave1, spec1)
-			for i, w := range merge {
-				wave1[i] *= w
-			}
-			prev := resultPrev[step:]
+
+			// 直前のフレームと合成しながら出力
+			prev := wave1Prev[step:]
 			for i := 0; i < step; i++ {
 				s.output <- prev[i] + wave1[i]
 			}
-			wave1, resultPrev = resultPrev, wave1
+			wave1, wave1Prev = wave1Prev, wave1
 		}
 		if s.onFinish != nil {
 			s.onFinish()
