@@ -10,7 +10,6 @@ require (
 	github.com/magefile/mage v1.9.0
 	github.com/mattn/go-shellwords v1.0.3
 	github.com/mattn/go-zglob v0.0.1
-	github.com/mjibson/go-dsp v0.0.0-20180508042940-11479a337f12
 	github.com/mkb218/gosndfile v0.0.0-20171006180803-e0c9ef895ee2
 	github.com/pkg/profile v1.3.0
 	github.com/pmezard/go-difflib v1.0.0 // indirect

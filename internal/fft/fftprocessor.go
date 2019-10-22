@@ -4,7 +4,7 @@ import (
 	"log"
 	"math"
 
-	"github.com/mjibson/go-dsp/window"
+	"github.com/but80/voispire/internal/window"
 	"gonum.org/v1/gonum/fourier"
 )
 
