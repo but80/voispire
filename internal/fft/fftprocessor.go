@@ -4,6 +4,7 @@ import (
 	"log"
 	"math"
 
+	"github.com/but80/voispire/internal/smath"
 	"github.com/but80/voispire/internal/window"
 	"gonum.org/v1/gonum/fourier"
 )
@@ -47,31 +48,12 @@ func (s *fftProcessor) OnFinish(callback func()) {
 	s.onFinish = callback
 }
 
-func sign(v float64) float64 {
-	if v < 0 {
-		return -1
-	}
-	if 0 < v {
-		return 1
-	}
-	return 0
-}
-
-func signedSqrt(v float64) float64 {
-	return sign(v) * math.Sqrt(math.Abs(v))
-}
-
-func easing(width int) []float64 {
-	result := make([]float64, width)
-	n := width / 2
-	for i := 0; i < n; i++ {
-		t := float64(i) / float64(n)
-		c := math.Cos(t * math.Pi)
-		v := (1 + signedSqrt(c)) * .5
-		result[n-1-i] = v
-		result[n+i] = v
-	}
-	return result
+func easing(n int) []float64 {
+	return window.New(n, func(t float64) float64 {
+		u := t*2 - 1
+		c := math.Cos(u * math.Pi)
+		return (1 + smath.SignedSqrt(c)) * .5
+	})
 }
 
 func (s *fftProcessor) Start() {
