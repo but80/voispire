@@ -45,18 +45,48 @@ func (s *fftProcessor) OnFinish(callback func()) {
 	s.onFinish = callback
 }
 
+func sign(v float64) float64 {
+	if v < 0 {
+		return -1
+	}
+	if 0 < v {
+		return 1
+	}
+	return 0
+}
+
+func signedSqrt(v float64) float64 {
+	return sign(v) * math.Sqrt(math.Abs(v))
+}
+
+func easing(width int) []float64 {
+	result := make([]float64, width)
+	n := width / 2
+	for i := 0; i < n; i++ {
+		t := float64(i) / float64(n)
+		c := math.Cos(t * math.Pi)
+		v := (1 + signedSqrt(c)) * .5
+		result[n-1-i] = v
+		result[n+i] = v
+	}
+	return result
+}
+
 func (s *fftProcessor) Start() {
 	go func() {
 		log.Print("debug: fftProcessor goroutine is started")
 		step := s.width >> 1
-		win := window.Bartlett(s.width)
-		for i, w := range win {
-			win[i] = math.Sqrt(w)
-		}
+		hann := window.Hann(s.width)
 		wave0 := make([]float64, s.width)
 		spec0 := make([]complex128, s.width/2+1)
 		resultPrev := make([]float64, s.width)
 		wave1 := make([]float64, s.width)
+
+		merge := easing(s.width)
+		for i, w := range window.Hamming(s.width) {
+			merge[i] /= w
+		}
+
 		n0 := len(s.src)
 		n := n0
 		if n%step != 0 {
@@ -68,7 +98,7 @@ func (s *fftProcessor) Start() {
 		}
 		for i := 0; i < n0; i += step {
 			// log.Printf("debug: fftProcessor %d", i)
-			for j, w := range win {
+			for j, w := range hann {
 				wave0[j] = s.src[i+j] * w
 			}
 			s.fft.Coefficients(spec0, wave0)
@@ -78,7 +108,7 @@ func (s *fftProcessor) Start() {
 			}
 			spec1 := s.processor(spec0, wave0)
 			s.fft.Sequence(wave1, spec1)
-			for i, w := range win {
+			for i, w := range merge {
 				wave1[i] *= w
 			}
 			prev := resultPrev[step:]

@@ -47,7 +47,7 @@ func NewCepstralShifter(src []float64, fs, width int, shift float64) FormantShif
 		}
 
 		// 包絡線（微細構造の中央を縫う）により隙間を埋めていく
-		const kn = 8    // 繰り返し回数
+		const kn = 16   // 繰り返し回数
 		const cn0 = 192 // ケプストラム中の包絡線成分とみなす次数
 		const cn1 = 96
 		r := 1.0 / float64(s.width)
