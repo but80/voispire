@@ -2,7 +2,7 @@ package formant
 
 import (
 	"github.com/but80/voispire/internal/fft"
-	"github.com/but80/voispire/internal/ldurbin"
+	"github.com/but80/voispire/internal/levinsondurbin"
 	"golang.org/x/xerrors"
 )
 
@@ -12,16 +12,17 @@ type lpcShifter struct {
 	fs          int
 	shiftInv    float64
 	maxPeakNum  int
-	envDetector *ldurbin.SpectralEnvelopeDetector
+	envDetector *levinsondurbin.SpectralEnvelopeDetector
 	envelope    []float64
 	spec1       []complex128
 }
 
+// NewLPCShifter は、線形予測分析を用いたフォルマントシフタを作成します。
 func NewLPCShifter(src []float64, fs, width int, shift float64) FormantShifter {
 	s := &lpcShifter{
 		width:       width,
 		fs:          fs,
-		envDetector: ldurbin.NewSpectralEnvelopeDetector(width, 96),
+		envDetector: levinsondurbin.NewSpectralEnvelopeDetector(width, 96),
 		envelope:    make([]float64, width/2+1),
 		spec1:       make([]complex128, width/2+1),
 	}

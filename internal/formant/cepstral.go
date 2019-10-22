@@ -22,6 +22,7 @@ type cepstralShifter struct {
 	spec1      []complex128
 }
 
+// NewCepstralShifter は、ケプストラム分析を用いたフォルマントシフタを作成します。
 func NewCepstralShifter(src []float64, fs, width int, shift float64) FormantShifter {
 	s := &cepstralShifter{
 		cfft:       fourier.NewFFT(width),

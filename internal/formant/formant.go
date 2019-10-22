@@ -5,6 +5,7 @@ import (
 	"golang.org/x/xerrors"
 )
 
+// FormantShifter は、フォルマントシフタのインタフェースです。
 type FormantShifter interface {
 	fft.FFTProcessor
 }

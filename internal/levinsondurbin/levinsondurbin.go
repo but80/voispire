@@ -1,4 +1,4 @@
-package ldurbin
+package levinsondurbin
 
 import (
 	"math"

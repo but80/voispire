@@ -26,6 +26,7 @@ type brokenlineShifter struct {
 	spec1      []complex128
 }
 
+// NewBrokenlineShifter は、折れ線近似を用いたフォルマントシフタを作成します。
 func NewBrokenlineShifter(src []float64, fs, width int, shift float64) FormantShifter {
 	maxPeakNum := 100
 	s := &brokenlineShifter{

@@ -8,6 +8,7 @@ import (
 	"gonum.org/v1/gonum/fourier"
 )
 
+// FFTProcessor は、FFT・逆FFTを用いて波形を加工する処理器です。
 type FFTProcessor interface {
 	Output() <-chan float64
 	OnFinish(func())
@@ -23,6 +24,7 @@ type fftProcessor struct {
 	onFinish  func()
 }
 
+// NewFFTProcessor は、新しい FFTProcessor を作成します。
 func NewFFTProcessor(src []float64, width int, processor func([]complex128, []float64) []complex128) FFTProcessor {
 	if width < 4 {
 		width = 4
