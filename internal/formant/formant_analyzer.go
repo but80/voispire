@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/but80/simplevid-go"
+	"gonum.org/v1/gonum/fourier"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
@@ -35,7 +36,22 @@ var (
 	analyzerImageCh = make(chan image.Image, 100)
 )
 
-func toPlotLine(data []float64, fs int, c color.Color) *plotter.Line {
+func toTimePlotLine(data []float64, fs int, c color.Color) *plotter.Line {
+	xys := make(plotter.XYs, len(data))
+	xr := 1 / float64(fs)
+	for i, v := range data {
+		xys[i].X = float64(i) * xr
+		xys[i].Y = v
+	}
+	line, _ := plotter.NewLine(xys)
+	line.LineStyle.Color = c
+	line.LineStyle.Width = 1
+	line.LineStyle.Dashes = nil
+	line.LineStyle.DashOffs = 0
+	return line
+}
+
+func toSpecPlotLine(data []float64, fs int, c color.Color) *plotter.Line {
 	data = data[1:]
 	xys := make(plotter.XYs, len(data))
 	xr := (float64(fs) / 2) / float64(len(data))
@@ -106,17 +122,27 @@ func analyzerFrame(data *analyzerData) {
 		panic(err)
 	}
 
-	p.Add(toPlotLine(cmplxAbs(data.spec1), data.fs, color.RGBA{R: 0, G: 192, B: 255, A: 255}))
-	p.Add(toPlotLine(cmplxAbs(data.spec0), data.fs, color.RGBA{R: 255, G: 128, B: 0, A: 255}))
-	p.Add(toPlotLine(data.envelope, data.fs, color.RGBA{R: 255, G: 0, B: 0, A: 255}))
-
-	p.Title.Text = "voispire"
-	// p.X.Scale = plot.LogScale{}
-	// p.X.Tick.Marker = plot.LogTicks{}
-	p.X.Label.Text = "Freq."
-	p.Y.Label.Text = "Amp."
-	p.Y.Min = -90
-	p.Y.Max = 0
+	if true {
+		wave1 := fourier.NewFFT((len(data.spec1)-1)*2).Sequence(nil, data.spec1)
+		p.Add(toTimePlotLine(wave1, data.fs, color.RGBA{R: 0, G: 96, B: 255, A: 255}))
+		p.Add(toTimePlotLine(data.wave0, data.fs, color.RGBA{R: 255, G: 0, B: 0, A: 255}))
+		p.Title.Text = "voispire"
+		p.X.Label.Text = "Time"
+		p.Y.Label.Text = "Amp."
+		p.Y.Min = -1
+		p.Y.Max = 1
+	} else {
+		p.Add(toSpecPlotLine(cmplxAbs(data.spec1), data.fs, color.RGBA{R: 0, G: 96, B: 255, A: 255}))
+		p.Add(toSpecPlotLine(cmplxAbs(data.spec0), data.fs, color.RGBA{R: 255, G: 128, B: 128, A: 255}))
+		p.Add(toSpecPlotLine(data.envelope, data.fs, color.RGBA{R: 255, G: 0, B: 0, A: 255}))
+		p.Title.Text = "voispire"
+		p.X.Scale = plot.LogScale{}
+		p.X.Tick.Marker = plot.LogTicks{}
+		p.X.Label.Text = "Freq."
+		p.Y.Label.Text = "Amp."
+		p.Y.Min = -90
+		p.Y.Max = 0
+	}
 
 	img, err := toImage(p)
 	if err != nil {
