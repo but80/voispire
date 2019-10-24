@@ -29,7 +29,7 @@ GLOBAL OPTIONS:
 # 引数は -t <ピッチシフト量[半音]> -f <フォルマントシフト量[半音]> <入力音声ファイル> [<出力音声ファイル保存先>]
 go run cmd/voispire/main.go -t 6 -f 3 input.wav output.wav
 
-# 出力先を省略するとオーディオデバイスで直接再生
+# 出力先を省略するとPortAudioで直接再生
 go run cmd/voispire/main.go -t 6 -f 3 input.wav
 ```
 
@@ -70,7 +70,7 @@ voispire.exe -h
 ## TODO
 
 - 基本周波数を先読みして発話開始箇所のプチノイズ軽減
-- 入力のストリーム化
+- 入力のPortAudioストリーム化
 
 ## License
 

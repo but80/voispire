@@ -3,6 +3,7 @@ package fft
 import (
 	"log"
 
+	"github.com/but80/voispire/internal/buffer"
 	"github.com/but80/voispire/internal/series"
 	"gonum.org/v1/gonum/fourier"
 )
@@ -16,22 +17,18 @@ type Processor interface {
 
 type fftProcessor struct {
 	fft       *fourier.FFT
+	input     *buffer.WaveSource
 	output    chan float64
-	src       []float64
 	width     int
 	processor func([]complex128, []float64) []complex128
 	onFinish  func()
 }
 
 // NewProcessor は、新しい Processor を作成します。
-func NewProcessor(src []float64, width int, processor func([]complex128, []float64) []complex128) Processor {
-	if width < 4 {
-		width = 4
-	}
-	width = (width >> 1) << 1
+func NewProcessor(input *buffer.WaveSource, width int, processor func([]complex128, []float64) []complex128) Processor {
 	return &fftProcessor{
 		fft:       fourier.NewFFT(width),
-		src:       src,
+		input:     input,
 		width:     width,
 		processor: processor,
 		output:    make(chan float64, 4096),
@@ -57,13 +54,15 @@ func (s *fftProcessor) Start() {
 		wave1 := make([]float64, s.width)        // wave0 を加工した結果
 		wave1Prev := make([]float64, s.width)    // 直前のフレームの wave1
 
-		// ソースのスライス末尾を切りの良いところまで 0 で埋める
-		s.src = series.ExtendFloatSliceCeil(s.src, step)
-		s.src = series.ExtendFloatSlice(s.src, step)
+		i := 0
+		for {
+			src, cont := s.input.Read(i, i+s.width)
+			if !cont {
+				src = series.ExtendFloatSlice(src, s.width-len(src))
+			}
 
-		for i := 0; i+step < len(s.src); i += step {
 			// 窓がけして周波数スペクトルを作成
-			win.Apply(wave0, s.src[i:])
+			win.Apply(wave0, src)
 			s.fft.Coefficients(spec0, wave0)
 			series.CmplxDivFloatConst(spec0, spec0, float64(s.fft.Len())) // 振幅を調整
 
@@ -78,7 +77,13 @@ func (s *fftProcessor) Start() {
 			for i := 0; i < step; i++ {
 				s.output <- prev[i] + wave1[i]
 			}
+
+			s.input.DiscardUntil(i)
+			if !cont {
+				break
+			}
 			wave1, wave1Prev = wave1Prev, wave1
+			i += step
 		}
 		if s.onFinish != nil {
 			s.onFinish()

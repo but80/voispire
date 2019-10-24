@@ -57,6 +57,18 @@ func main() {
 			Usage: "出力サンプリング周波数（ファイル保存時のみ有効・省略時は入力と同じ）",
 		},
 		cli.BoolFlag{
+			Name:  "list, l",
+			Usage: "オーディオデバイス一覧を表示",
+		},
+		cli.IntFlag{
+			Name:  "input-device, d",
+			Usage: "入力オーディオデバイスを指定",
+		},
+		cli.IntFlag{
+			Name:  "output-device, D",
+			Usage: "出力オーディオデバイスを指定",
+		},
+		cli.BoolFlag{
 			Name:  "verbose, v",
 			Usage: "詳細を表示",
 		},
@@ -76,9 +88,6 @@ func main() {
 			cli.ShowVersion(ctx)
 			return nil
 		}
-		if ctx.NArg() < 1 {
-			cli.ShowAppHelpAndExit(ctx, 1)
-		}
 
 		if ctx.Bool("debug") {
 			colog.SetMinLevel(colog.LDebug)
@@ -86,6 +95,13 @@ func main() {
 			colog.SetMinLevel(colog.LInfo)
 		} else {
 			colog.SetMinLevel(colog.LWarning)
+		}
+
+		if ctx.Bool("list") {
+			if err := voispire.ListDevices(); err != nil {
+				return cli.NewExitError(err, 1)
+			}
+			return nil
 		}
 
 		transpose := ctx.Float64("transpose")
@@ -112,12 +128,27 @@ func main() {
 			return cli.NewExitError(err, 1)
 		}
 
-		infile := ctx.Args()[0]
+		if ctx.NArg() < 1 && transpose == 0 && formant == 0 {
+			cli.ShowAppHelpAndExit(ctx, 1)
+		}
+
+		infile := ""
+		if 1 <= ctx.NArg() {
+			infile = ctx.Args()[0]
+		}
+		if infile == "@" {
+			infile = ""
+		}
+
 		outfile := ""
 		if 2 <= ctx.NArg() {
 			outfile = ctx.Args()[1]
 		}
-		if err := voispire.Demo(transpose, formant, framePeriodMsec*.001, int(rate), infile, outfile); err != nil {
+
+		inDevID := ctx.Int("input-device")
+		outDevID := ctx.Int("output-device")
+
+		if err := voispire.Start(transpose, formant, framePeriodMsec*.001, int(rate), inDevID, outDevID, infile, outfile); err != nil {
 			return cli.NewExitError(err, 1)
 		}
 		return nil

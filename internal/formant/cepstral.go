@@ -4,6 +4,7 @@ import (
 	"math"
 	"math/cmplx"
 
+	"github.com/but80/voispire/internal/buffer"
 	"github.com/but80/voispire/internal/fft"
 	"gonum.org/v1/gonum/fourier"
 )
@@ -23,7 +24,7 @@ type cepstralShifter struct {
 }
 
 // NewCepstralShifter は、ケプストラム分析を用いたフォルマントシフタを作成します。
-func NewCepstralShifter(src []float64, fs, width int, shift float64) FormantShifter {
+func NewCepstralShifter(input *buffer.WaveSource, fs, width int, shift float64) FormantShifter {
 	s := &cepstralShifter{
 		cfft:       fourier.NewFFT(width),
 		width:      width,
@@ -34,7 +35,7 @@ func NewCepstralShifter(src []float64, fs, width int, shift float64) FormantShif
 		ceps:       make([]float64, width),
 		spec1:      make([]complex128, width/2+1),
 	}
-	s.Processor = fft.NewProcessor(src, width, func(spec0 []complex128, wave0 []float64) []complex128 {
+	s.Processor = fft.NewProcessor(input, width, func(spec0 []complex128, wave0 []float64) []complex128 {
 		if len(spec0) <= 4 {
 			return spec0
 		}
