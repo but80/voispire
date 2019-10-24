@@ -80,16 +80,22 @@ const (
 
 // Demo は、デモ実装です。
 func Demo(transpose, formantShift, framePeriod float64, rate int, infile, outfile string) error {
-	src, fs, err := wav.Load(infile)
-	if err != nil {
-		return xerrors.Errorf("音声ファイルの読み込みに失敗しました: %w", err)
-	}
-	log.Printf("debug: IN: %d samples, fs=%d", len(src), fs)
-
 	var f0 []float64
 	if transpose != 0 {
 		log.Print("info: 基本周波数を推定中...")
+
+		src, fs, err := wav.Load(infile)
+		if err != nil {
+			return xerrors.Errorf("音声ファイルの読み込みに失敗しました: %w", err)
+		}
+		log.Printf("debug: IN: %d samples, fs=%d", len(src), fs)
+
 		f0, _ = world.Harvest(src, fs, framePeriod, f0Floor, f0Ceil)
+	}
+
+	input, fs, err := wav.NewWavFileSource(infile)
+	if err != nil {
+		return xerrors.Errorf("音声ファイルのオープンに失敗しました: %w", err)
 	}
 
 	fsOut := fs
@@ -100,7 +106,7 @@ func Demo(transpose, formantShift, framePeriod float64, rate int, infile, outfil
 	pitchCoef := math.Pow(2.0, transpose/12.0)
 	formantCoef := math.Pow(2.0, (formantShift-transpose)/12.0)
 
-	mod1 := formant.NewCepstralShifter(src, fs, 1024, formantCoef)
+	mod1 := formant.NewCepstralShifter(input, fs, 1024, formantCoef)
 	var mod2 *f0Splitter
 	var mod3 *stretcher
 	var lastmod interface{ Start() }
@@ -135,7 +141,7 @@ func Demo(transpose, formantShift, framePeriod float64, rate int, infile, outfil
 		time.Sleep(time.Second)
 	} else {
 		lastmod.Start()
-		result := make([]float64, 0, len(src))
+		result := make([]float64, 0)
 		log.Print("info: 変換中...")
 		for {
 			v, ok := <-outCh
