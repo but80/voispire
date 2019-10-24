@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
@@ -125,7 +126,13 @@ func BuildWorld() error {
 // Build program
 func Build() error {
 	mg.SerialDeps(BuildWorld)
-	return runVWithArgs("go", "build", "./cmd/voispire")
+	v, err := sh.Output("git", "describe", "--tags")
+	if err != nil {
+		v = "unknown"
+	}
+	v = strings.TrimSpace(v)
+	ldflags := fmt.Sprintf(`-X main.version=%s`, v)
+	return runVWithArgs("go", "build", "-ldflags", ldflags, "./cmd/voispire")
 }
 
 // Run program
