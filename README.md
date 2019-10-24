@@ -4,55 +4,109 @@
 [![Godoc](https://godoc.org/github.com/but80/voispire?status.svg)](https://godoc.org/github.com/but80/voispire)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
-**WORK IN PROGRESS**
+**Alpha Version**
 
-ボイスチェンジャーです。
+コマンドラインで動作するボイスチェンジャーです。
 
 ## 使用方法
 
+引数なしで実行するとサブコマンド一覧が表示されます。
+
 ```
+NAME:
+   voispire - ボイスチェンジャー
+
 USAGE:
-   voispire [オプション...] <入力音声ファイル> [<出力音声ファイル保存先>]
+   voispire [global options] command [command options] [arguments...]
+
+DESCRIPTION:
+   ピッチシフトに用いる基本周波数の抽出に
+   「音声分析変換合成システム WORLD」
+   https://github.com/mmorise/World を使用しています。
+
+AUTHOR:
+   but80 <mersenne.sister@gmail.com>
+
+COMMANDS:
+     version, v  バージョン情報を表示します
+     device, d   オーディオデバイス一覧を表示します
+     start, s    ストリーミングを開始します
+     convert, c  ファイル変換を開始します
+     help, h     Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --transpose value, -t value  ピッチシフト量 [半音] (default: 0)
-   --formant value, -f value    フォルマントシフト量 [半音] (default: 0)
-   --verbose, -v                詳細を表示
-   --debug                      デバッグ情報を表示
-   --version                    バージョン番号を表示
-   --help, -h                   show help
+   --help, -h  show help
 ```
 
-今のところデモとしてWAVファイルのピッチシフト・フォルマントシフトを試せます（`input.wav` はモノラル16bit限定）。
+### `start` サブコマンド
+
+**現バージョンでは、start サブコマンドはフォルマントシフトのみ使用できます。ピッチシフトはできません。**
+
+```
+NAME:
+   voispire start - ストリーミングを開始します
+
+USAGE:
+   voispire start [command options] [ <input-device> [ <output-device> ] ]
+
+OPTIONS:
+   --formant value, -f value  フォルマントシフト量 [半音] (default: 0)
+   --verbose, -v              詳細を表示
+   --debug                    デバッグ情報を表示
+```
+
+`voispire start -f 3` のようにすると、デフォルトのオーディオデバイスでストリーミングが開始されます。
+マイク等から入力された音声のフォルマントが3半音シフトされ、ヘッドホン等から変換後の音声が出力されます。
+
+次項に説明する `device` サブコマンドで確認できるデバイスIDを指定すると、任意のオーディオデバイスを使用できます。
+`voispire start -f 3 10 11` のようにすると、ID=10 の入力デバイス および ID=11 の出力デバイスが使用されます。
+
+
+### `device` サブコマンド
+
+`voispire device` でオーディオデバイス一覧が表示されます。
+使用するデバイスIDを控えてから `start` サブコマンドに使用してください。
+
+入力デバイス・出力デバイスはそれぞれIDと対応するデバイスが異なることにご注意ください。
+
+### `convert` サブコマンド
+
+```
+NAME:
+   voispire convert - ファイル変換を開始します
+
+USAGE:
+   voispire convert [command options] <input-file> [ <output-file> ]
+
+OPTIONS:
+   --formant value, -f value       フォルマントシフト量 [半音] (default: 0)
+   --verbose, -v                   詳細を表示
+   --debug                         デバッグ情報を表示
+   --transpose value, -t value     ピッチシフト量 [半音] (default: 0)
+   --frame-period value, -p value  フレームピリオド [msec] (default: 5)
+   --rate value, -r value          出力サンプリング周波数（省略時は入力と同じ） (default: 0)
+```
+
+`voispire convert -t 6 -f 3 input.wav output.wav` のようにすると、音声ファイル `input.wav` を6半音ピッチシフト・3半音フォルマントシフトして `output.wav` に保存します。
+
+`<output-file>` を省略すると、デフォルトの出力デバイスで直接音声が再生されます。
+
+## ビルド
+
+### 必須環境
+
+- 以下のいずれかのOS
+  - Windows + MinGW
+  - macOS
+  - Linux
+- 以下のライブラリ
+  - [PortAudio](http://www.portaudio.com/)
+- Go 1.12
+
+### ビルド手順
 
 ```bash
-# 引数は -t <ピッチシフト量[半音]> -f <フォルマントシフト量[半音]> <入力音声ファイル> [<出力音声ファイル保存先>]
-go run cmd/voispire/main.go -t 6 -f 3 input.wav output.wav
-
-# 出力先を省略するとPortAudioで直接再生
-go run cmd/voispire/main.go -t 6 -f 3 input.wav
-```
-
-## ビルド手順
-
-### macOS / Linux
-
-```bash
-cd cmodules/world
-make
-cd ../..
 go run mage.go build
-./voispire -h
-```
-
-### Windows + MinGW
-
-```batch
-cd cmodules\world
-make
-cd ..\..
-go run mage.go build
-voispire.exe -h
 ```
 
 ## 技術情報
@@ -69,16 +123,16 @@ voispire.exe -h
 
 ## TODO
 
-- 基本周波数を先読みして発話開始箇所のプチノイズ軽減
-- 入力のPortAudioストリーム化
+- ピッチシフト
+  - WORLD のGo化とストリーミング
+  - 発話開始箇所のプチノイズ軽減（f0の先読み）
+- フォルマントシフト
+  - 精度・速度向上
+- 連続FFT処理
+  - フレーム間の接続方式改善
+- 自動ビルド・リリース
+- GUI
 
 ## License
 
 BSD 3-Clause License
-
-This software includes the following packages under each license:
-
-- [WORLD - a high-quality speech analysis, manipulation and synthesis system](https://github.com/mmorise/World) : BSD 3-Clause License
-- [go-audio/audio](https://github.com/go-audio/audio) : Apache-2.0
-- [go-audio/wav](https://github.com/go-audio/wav) : Apache-2.0
-- and the various MIT/ISC licensed great softwares
