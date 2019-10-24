@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/but80/voispire"
@@ -13,11 +14,160 @@ import (
 var version = "unknown"
 
 const description = `
-   - 基本周波数の抽出に「音声分析変換合成システム WORLD」
-     https://github.com/mmorise/World を使用しています。
+   ピッチシフトに用いる基本周波数の抽出に
+   「音声分析変換合成システム WORLD」
+   https://github.com/mmorise/World を使用しています。
 `
 
 var onExit func()
+
+var commonFlags = []cli.Flag{
+	cli.Float64Flag{
+		Name:  "formant, f",
+		Usage: "フォルマントシフト量 [半音]",
+	},
+	cli.BoolFlag{
+		Name:  "verbose, v",
+		Usage: "詳細を表示",
+	},
+	cli.BoolFlag{
+		Name:  "debug",
+		Usage: "デバッグ情報を表示",
+	},
+}
+
+func parseFlags(ctx *cli.Context) (voispire.Options, error) {
+	if ctx.Bool("debug") {
+		colog.SetMinLevel(colog.LDebug)
+	} else if ctx.Bool("verbose") {
+		colog.SetMinLevel(colog.LInfo)
+	} else {
+		colog.SetMinLevel(colog.LWarning)
+	}
+
+	var o voispire.Options
+
+	o.Formant = ctx.Float64("formant")
+	if o.Formant < -12.0 || 12.0 < o.Formant {
+		err := xerrors.New("フォルマントシフト量は -12..12 の数値である必要があります")
+		return o, cli.NewExitError(err, 1)
+	}
+
+	o.Transpose = ctx.Float64("transpose")
+	if o.Transpose < -12.0 || 12.0 < o.Transpose {
+		err := xerrors.New("ピッチシフト量は -12..12 の数値である必要があります")
+		return o, cli.NewExitError(err, 1)
+	}
+
+	o.FramePeriodMsec = ctx.Float64("frame-period")
+	if o.FramePeriodMsec != 0 && (o.FramePeriodMsec < 1.0 || 200.0 < o.FramePeriodMsec) {
+		err := xerrors.New("フレームピリオドは 1..200 の数値である必要があります")
+		return o, cli.NewExitError(err, 1)
+	}
+
+	o.Rate = ctx.Int("rate")
+	if o.Rate != 0 && (o.Rate < 8000 || 96000 < o.Rate) {
+		err := xerrors.New("サンプリング周波数は 8000..96000 の数値である必要があります")
+		return o, cli.NewExitError(err, 1)
+	}
+
+	return o, nil
+}
+
+var versionCmd = cli.Command{
+	Name:    "version",
+	Aliases: []string{"v"},
+	Usage:   "バージョン情報を表示します",
+	Action: func(ctx *cli.Context) error {
+		cli.ShowVersion(ctx)
+		return nil
+	},
+}
+
+var deviceCmd = cli.Command{
+	Name:    "device",
+	Aliases: []string{"d"},
+	Usage:   "オーディオデバイス一覧を表示します",
+	Action: func(ctx *cli.Context) error {
+		if err := voispire.ListDevices(); err != nil {
+			return cli.NewExitError(err, 1)
+		}
+		return nil
+	},
+}
+
+var startCmd = cli.Command{
+	Name:      "start",
+	Aliases:   []string{"s"},
+	Usage:     "ストリーミングを開始します",
+	ArgsUsage: "[ <input-device> [ <output-device> ] ]",
+	Flags:     commonFlags,
+	Action: func(ctx *cli.Context) error {
+		o, err := parseFlags(ctx)
+		if err != nil {
+			return err
+		}
+
+		if 1 <= ctx.NArg() {
+			o.InDevID, _ = strconv.Atoi(ctx.Args()[0])
+		}
+
+		if 2 <= ctx.NArg() {
+			o.OutDevID, _ = strconv.Atoi(ctx.Args()[1])
+		}
+
+		if err := voispire.Start(o); err != nil {
+			return cli.NewExitError(err, 1)
+		}
+		return nil
+	},
+}
+
+var convertCmd = cli.Command{
+	Name:      "convert",
+	Aliases:   []string{"c"},
+	Usage:     "ファイル変換を開始します",
+	ArgsUsage: "<input-file> [ <output-file> ]",
+	Flags: append(
+		commonFlags,
+		cli.Float64Flag{
+			Name:  "transpose, t",
+			Usage: "ピッチシフト量 [半音]",
+		},
+		cli.Float64Flag{
+			Name:  "frame-period, p",
+			Usage: "フレームピリオド [msec]",
+			Value: 5.0,
+		},
+		cli.IntFlag{
+			Name:  "rate, r",
+			Usage: "出力サンプリング周波数（省略時は入力と同じ）",
+		},
+	),
+	Action: func(ctx *cli.Context) error {
+		o, err := parseFlags(ctx)
+		if err != nil {
+			return err
+		}
+
+		if ctx.NArg() < 1 {
+			cli.ShowCommandHelpAndExit(ctx, "convert", 1)
+		}
+
+		if 1 <= ctx.NArg() {
+			o.InFile = ctx.Args()[0]
+		}
+
+		if 2 <= ctx.NArg() {
+			o.OutFile = ctx.Args()[1]
+		}
+
+		if err := voispire.Start(o); err != nil {
+			return cli.NewExitError(err, 1)
+		}
+		return nil
+	},
+}
 
 func main() {
 	defer func() {
@@ -37,120 +187,18 @@ func main() {
 		},
 	}
 	app.HelpName = "voispire"
-	app.UsageText = "voispire [オプション...] -t <ピッチシフト量[半音]> <入力音声ファイル> [<出力音声ファイル保存先>]"
-	app.Flags = []cli.Flag{
-		cli.Float64Flag{
-			Name:  "transpose, t",
-			Usage: "ピッチシフト量 [半音]",
-		},
-		cli.Float64Flag{
-			Name:  "formant, f",
-			Usage: "フォルマントシフト量 [半音]",
-		},
-		cli.Float64Flag{
-			Name:  "frame-period, p",
-			Usage: "フレームピリオド [msec]",
-			Value: 5.0,
-		},
-		cli.Int64Flag{
-			Name:  "rate, r",
-			Usage: "出力サンプリング周波数（ファイル保存時のみ有効・省略時は入力と同じ）",
-		},
-		cli.BoolFlag{
-			Name:  "list, l",
-			Usage: "オーディオデバイス一覧を表示",
-		},
-		cli.IntFlag{
-			Name:  "input-device, d",
-			Usage: "入力オーディオデバイスを指定",
-		},
-		cli.IntFlag{
-			Name:  "output-device, D",
-			Usage: "出力オーディオデバイスを指定",
-		},
-		cli.BoolFlag{
-			Name:  "verbose, v",
-			Usage: "詳細を表示",
-		},
-		cli.BoolFlag{
-			Name:  "debug",
-			Usage: "デバッグ情報を表示",
-		},
-		cli.BoolFlag{
-			Name:  "version",
-			Usage: "バージョン番号を表示",
-		},
-	}
+	app.Flags = []cli.Flag{}
 	app.HideVersion = true
 
+	app.Commands = []cli.Command{
+		versionCmd,
+		deviceCmd,
+		startCmd,
+		convertCmd,
+	}
+
 	app.Action = func(ctx *cli.Context) error {
-		if ctx.Bool("version") {
-			cli.ShowVersion(ctx)
-			return nil
-		}
-
-		if ctx.Bool("debug") {
-			colog.SetMinLevel(colog.LDebug)
-		} else if ctx.Bool("verbose") {
-			colog.SetMinLevel(colog.LInfo)
-		} else {
-			colog.SetMinLevel(colog.LWarning)
-		}
-
-		if ctx.Bool("list") {
-			if err := voispire.ListDevices(); err != nil {
-				return cli.NewExitError(err, 1)
-			}
-			return nil
-		}
-
-		transpose := ctx.Float64("transpose")
-		if transpose < -24.0 || 24.0 < transpose {
-			err := xerrors.New("ピッチシフト量は -24..24 の数値である必要があります")
-			return cli.NewExitError(err, 1)
-		}
-
-		formant := ctx.Float64("formant")
-		if formant < -24.0 || 24.0 < formant {
-			err := xerrors.New("フォルマントシフト量は -24..24 の数値である必要があります")
-			return cli.NewExitError(err, 1)
-		}
-
-		framePeriodMsec := ctx.Float64("frame-period")
-		if framePeriodMsec < 1.0 || 200.0 < framePeriodMsec {
-			err := xerrors.New("フレームピリオドは 1..200 の数値である必要があります")
-			return cli.NewExitError(err, 1)
-		}
-
-		rate := ctx.Int64("rate")
-		if rate != 0 && (rate < 8000 || 96000 < rate) {
-			err := xerrors.New("サンプリング周波数は 8000..96000 の数値である必要があります")
-			return cli.NewExitError(err, 1)
-		}
-
-		if ctx.NArg() < 1 && transpose == 0 && formant == 0 {
-			cli.ShowAppHelpAndExit(ctx, 1)
-		}
-
-		infile := ""
-		if 1 <= ctx.NArg() {
-			infile = ctx.Args()[0]
-		}
-		if infile == "@" {
-			infile = ""
-		}
-
-		outfile := ""
-		if 2 <= ctx.NArg() {
-			outfile = ctx.Args()[1]
-		}
-
-		inDevID := ctx.Int("input-device")
-		outDevID := ctx.Int("output-device")
-
-		if err := voispire.Start(transpose, formant, framePeriodMsec*.001, int(rate), inDevID, outDevID, infile, outfile); err != nil {
-			return cli.NewExitError(err, 1)
-		}
+		cli.ShowAppHelpAndExit(ctx, 1)
 		return nil
 	}
 

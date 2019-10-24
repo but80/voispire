@@ -248,23 +248,35 @@ const (
 	f0Ceil  = 800.0
 )
 
+// Options は、 Start 関数のオプションです。
+type Options struct {
+	Formant         float64
+	Transpose       float64
+	FramePeriodMsec float64
+	Rate            int
+	InDevID         int
+	OutDevID        int
+	InFile          string
+	OutFile         string
+}
+
 // Start は、音声変換を開始します。
-func Start(transpose, formantShift, framePeriod float64, rate, inDevID, outDevID int, infile, outfile string) error {
+func Start(o Options) error {
 	var f0 []float64
-	if transpose != 0 {
+	if o.Transpose != 0 {
 		log.Print("info: 基本周波数を推定中...")
 
-		src, fs, err := wav.Load(infile)
+		src, fs, err := wav.Load(o.InFile)
 		if err != nil {
 			return xerrors.Errorf("音声ファイルの読み込みに失敗しました: %w", err)
 		}
 		log.Printf("debug: IN: %d samples, fs=%d", len(src), fs)
 
-		f0, _ = world.Harvest(src, fs, framePeriod, f0Floor, f0Ceil)
+		f0, _ = world.Harvest(src, fs, o.FramePeriodMsec, f0Floor, f0Ceil)
 	}
 
 	var params portaudio.StreamParameters
-	if infile == "" || outfile == "" {
+	if o.InFile == "" || o.OutFile == "" {
 		portaudio.Initialize()
 		closer.Bind(func() {
 			portaudio.Terminate()
@@ -280,21 +292,19 @@ func Start(transpose, formantShift, framePeriod float64, rate, inDevID, outDevID
 		}
 
 		var inDev *portaudio.DeviceInfo
-		if infile == "" {
+		if o.InFile == "" {
 			inDev = hostapi.DefaultInputDevice
-			inDevID--
-			if 0 <= inDevID && inDevID < len(ins) {
-				inDev = ins[inDevID]
+			if 1 <= o.InDevID && o.InDevID <= len(ins) {
+				inDev = ins[o.InDevID-1]
 			}
 			log.Printf("info: Input device: %s\n", inDev.Name)
 		}
 
 		var outDev *portaudio.DeviceInfo
-		if outfile == "" {
+		if o.OutFile == "" {
 			outDev = hostapi.DefaultOutputDevice
-			outDevID--
-			if 0 <= outDevID && outDevID < len(outs) {
-				outDev = outs[outDevID]
+			if 1 <= o.OutDevID && o.OutDevID <= len(outs) {
+				outDev = outs[o.OutDevID-1]
 			}
 			log.Printf("info: Output device: %s\n", outDev.Name)
 		}
@@ -306,37 +316,37 @@ func Start(transpose, formantShift, framePeriod float64, rate, inDevID, outDevID
 	var paInput *buffer.WaveSource
 	var fs int
 
-	if infile == "" {
+	if o.InFile == "" {
 		paInput = buffer.NewWaveSource()
 		input = paInput
 	} else {
 		var err error
-		input, fs, err = wav.NewWavFileSource(infile)
+		input, fs, err = wav.NewWavFileSource(o.InFile)
 		if err != nil {
 			return xerrors.Errorf("音声ファイルのオープンに失敗しました: %w", err)
 		}
 	}
 
 	fsOut := fs
-	if 0 < rate {
-		fsOut = rate
+	if 0 < o.Rate {
+		fsOut = o.Rate
 	}
 
-	pitchCoef := math.Pow(2.0, transpose/12.0)
-	formantCoef := math.Pow(2.0, (formantShift-transpose)/12.0)
+	pitchCoef := math.Pow(2.0, o.Transpose/12.0)
+	formantCoef := math.Pow(2.0, (o.Formant-o.Transpose)/12.0)
 
 	mod1 := formant.NewCepstralShifter(input, fs, 1024, formantCoef)
 	var mod2 *f0Splitter
 	var mod3 *stretcher
 	var lastmod interface{ Start() }
 	var outCh <-chan float64
-	if transpose == 0 {
+	if o.Transpose == 0 {
 		log.Print("info: フォルマントシフタのみを使用します")
 		outCh = mod1.Output()
 		lastmod = mod1
 	} else {
 		log.Print("info: フォルマントシフタとストレッチャを使用します")
-		mod2 = newF0Splitter(f0, float64(fs), framePeriod)
+		mod2 = newF0Splitter(f0, float64(fs), o.FramePeriodMsec)
 		mod3 = newStretcher(pitchCoef, 1.0, float64(fsOut)/float64(fs))
 		mod2.input = mod1.Output()
 		mod3.input = mod2.output
@@ -346,7 +356,7 @@ func Start(transpose, formantShift, framePeriod float64, rate, inDevID, outDevID
 		lastmod = mod3
 	}
 
-	if outfile == "" {
+	if o.OutFile == "" {
 		endCh, stream, err := render(params, paInput, outCh)
 		if err != nil {
 			return xerrors.Errorf("出力ストリームのオープンに失敗しました: %w", err)
@@ -371,7 +381,7 @@ func Start(transpose, formantShift, framePeriod float64, rate, inDevID, outDevID
 		}
 		log.Printf("debug: OUT: %d samples, fs=%d", len(result), fsOut)
 		log.Print("info: 保存中...")
-		wav.Save(outfile, fsOut, result)
+		wav.Save(o.OutFile, fsOut, result)
 		log.Print("info: 完了")
 	}
 	return nil
