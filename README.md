@@ -47,20 +47,20 @@ NAME:
    voispire start - ストリーミングを開始します
 
 USAGE:
-   voispire start [command options] [ <input-device> [ <output-device> ] ]
+   voispire start [command options] [ <input-device> [ <output-device> [ <output-file> ] ] ]
 
 OPTIONS:
    --formant value, -f value  フォルマントシフト量 [半音] (default: 0)
+   --rate value, -r value     ファイル出力サンプリング周波数（省略時は入力と同じ） (default: 0)
    --verbose, -v              詳細を表示
    --debug                    デバッグ情報を表示
 ```
 
-`voispire start -f 3` のようにすると、デフォルトのオーディオデバイスでストリーミングが開始されます。
-マイク等から入力された音声のフォルマントが3半音シフトされ、ヘッドホン等から変換後の音声が出力されます。
-
-次項に説明する `device` サブコマンドで確認できるデバイスIDを指定すると、任意のオーディオデバイスを使用できます。
-`voispire start -f 3 10 11` のようにすると、ID=10 の入力デバイス および ID=11 の出力デバイスが使用されます。
-
+- `voispire start -f 3` のようにすると、デフォルトのオーディオデバイスでストリーミングが開始されます。
+  マイク等から入力された音声のフォルマントが3半音シフトされ、ヘッドホン等から変換後の音声が出力されます。
+- 次項に説明する `device` サブコマンドで確認できるデバイスIDを指定すると、任意のオーディオデバイスを使用できます。
+  例えば `voispire start -f 3 10 11` のようにすると、ID=10 の入力デバイス および ID=11 の出力デバイスが使用されます。
+- `<output-file>` を指定すると、ストリーミングしながら音声ファイルにも保存できます。
 
 ### `device` サブコマンド
 
@@ -80,16 +80,15 @@ USAGE:
 
 OPTIONS:
    --formant value, -f value       フォルマントシフト量 [半音] (default: 0)
+   --rate value, -r value          ファイル出力サンプリング周波数（省略時は入力と同じ） (default: 0)
    --verbose, -v                   詳細を表示
    --debug                         デバッグ情報を表示
    --transpose value, -t value     ピッチシフト量 [半音] (default: 0)
    --frame-period value, -p value  フレームピリオド [msec] (default: 5)
-   --rate value, -r value          出力サンプリング周波数（省略時は入力と同じ） (default: 0)
 ```
 
-`voispire convert -t 6 -f 3 input.wav output.wav` のようにすると、音声ファイル `input.wav` を6半音ピッチシフト・3半音フォルマントシフトして `output.wav` に保存します。
-
-`<output-file>` を省略すると、デフォルトの出力デバイスで直接音声が再生されます。
+- `voispire convert -t 6 -f 3 input.wav output.wav` のようにすると、音声ファイル `input.wav` を6半音ピッチシフト・3半音フォルマントシフトして `output.wav` に保存します。
+- `<output-file>` を省略すると、デフォルトの出力デバイスで直接音声が再生されます。
 
 ## ビルド
 

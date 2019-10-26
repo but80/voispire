@@ -10,7 +10,6 @@ import (
 	"github.com/but80/voispire/internal/wav"
 	"github.com/but80/voispire/internal/world"
 	"github.com/gordonklaus/portaudio"
-	"github.com/xlab/closer"
 	"golang.org/x/xerrors"
 )
 
@@ -47,40 +46,12 @@ func Start(o Options) error {
 	}
 
 	var params portaudio.StreamParameters
-	if o.InFile == "" || o.OutFile == "" {
-		portaudio.Initialize()
-		closer.Bind(func() {
-			portaudio.Terminate()
-		})
-		hostapi, err := portaudio.DefaultHostApi()
+	if o.InDevID != 0 || o.OutDevID != 0 {
+		var err error
+		params, err = initAudio(o)
 		if err != nil {
-			return xerrors.Errorf("オーディオデバイスのオープンに失敗しました: %w", err)
+			return err
 		}
-
-		ins, outs, err := listDevices()
-		if err != nil {
-			return xerrors.Errorf("オーディオデバイス情報の取得に失敗しました: %w", err)
-		}
-
-		var inDev *portaudio.DeviceInfo
-		if o.InFile == "" {
-			inDev = hostapi.DefaultInputDevice
-			if 1 <= o.InDevID && o.InDevID <= len(ins) {
-				inDev = ins[o.InDevID-1]
-			}
-			log.Printf("info: Input device: %s\n", inDev.Name)
-		}
-
-		var outDev *portaudio.DeviceInfo
-		if o.OutFile == "" {
-			outDev = hostapi.DefaultOutputDevice
-			if 1 <= o.OutDevID && o.OutDevID <= len(outs) {
-				outDev = outs[o.OutDevID-1]
-			}
-			log.Printf("info: Output device: %s\n", outDev.Name)
-		}
-
-		params = portaudio.LowLatencyParameters(inDev, outDev)
 	}
 
 	var input *buffer.WaveSource
@@ -90,6 +61,8 @@ func Start(o Options) error {
 	if o.InFile == "" {
 		paInput = buffer.NewWaveSource()
 		input = paInput
+		// FIXME: 入力デバイスの周波数レートをfsに設定
+		fs = 44100
 	} else {
 		var err error
 		input, fs, err = wav.NewWavFileSource(o.InFile)
@@ -127,8 +100,25 @@ func Start(o Options) error {
 		lastmod = mod3
 	}
 
-	if o.OutFile == "" {
-		endCh, stream, err := render(params, paInput, outCh)
+	var fileOutCh chan<- []float64
+	var fileOutWait <-chan struct{}
+	if o.OutFile != "" {
+		var err error
+		fileOutCh, fileOutWait, err = wav.StartSave(o.OutFile, fsOut)
+		if err != nil {
+			return xerrors.Errorf("出力ファイルのオープンに失敗しました: %w", err)
+		}
+		log.Print("info: ファイル出力を開始しました")
+		defer func() {
+			portaudio.Terminate()
+			close(fileOutCh)
+			<-fileOutWait
+			log.Print("info: 完了")
+		}()
+	}
+
+	if o.InDevID != 0 || o.OutDevID != 0 {
+		endCh, stream, err := render(params, paInput, outCh, fileOutCh)
 		if err != nil {
 			return xerrors.Errorf("出力ストリームのオープンに失敗しました: %w", err)
 		}
@@ -143,6 +133,7 @@ func Start(o Options) error {
 		lastmod.Start()
 		result := make([]float64, 0)
 		log.Print("info: 変換中...")
+		// FIXME: 一定サイズごとに出力
 		for {
 			v, ok := <-outCh
 			if !ok {
@@ -150,10 +141,8 @@ func Start(o Options) error {
 			}
 			result = append(result, v)
 		}
+		fileOutCh <- result
 		log.Printf("debug: OUT: %d samples, fs=%d", len(result), fsOut)
-		log.Print("info: 保存中...")
-		wav.Save(o.OutFile, fsOut, result)
-		log.Print("info: 完了")
 	}
 	return nil
 }

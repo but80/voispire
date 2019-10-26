@@ -29,7 +29,7 @@ func NewWavFileSource(filename string) (*buffer.WaveSource, int, error) {
 		for {
 			n64, err := fin.ReadFrames(buf)
 			if err != nil {
-				log.Printf("error: 入力音声ファイルの読み込みに失敗しました: %s: %w", filename, err)
+				log.Printf("error: 入力音声ファイルの読み込みに失敗しました: %s: %s", filename, err)
 				return
 			}
 			n := int(n64)
@@ -90,43 +90,55 @@ func Load(filename string) ([]float64, int, error) {
 	return result, int(inInfo.Samplerate), nil
 }
 
-// Save は、モノラルの []float64 をwavファイルとして保存します。
-func Save(filename string, fs int, data []float64) error {
-	iLastClip := -fs
-	for i, v := range data {
-		if -1.0 <= v && v <= 1.0 {
-			continue
-		}
-		if v < -1.0 {
-			data[i] = -1.0
-		} else if 1.0 < v {
-			data[i] = 1.0
-		}
-		if iLastClip+fs <= i {
-			log.Printf("warn: クリッピングが発生しました: %.3f sec", float64(i)/float64(fs))
-			iLastClip = i
-		}
-	}
-
+// StartSave は、モノラルの []float64 をwavファイルとして保存するゴルーチンを開始します。
+func StartSave(filename string, fs int) (chan<- []float64, <-chan struct{}, error) {
 	outInfo := sndfile.Info{
-		Frames:     int64(len(data)),
+		// Frames:     int64(len(data)),
 		Samplerate: int32(fs),
 		Channels:   1,
 		Format:     sndfile.SF_FORMAT_WAV | sndfile.SF_FORMAT_PCM_16,
 	}
+	log.Printf("debug: sndfile.Info = %#v", outInfo)
 	fout, err := sndfile.Open(filename, sndfile.Write, &outInfo)
 	if err != nil {
-		return xerrors.Errorf("出力音声ファイルのオープンに失敗しました: %s: %w", filename, err)
+		return nil, nil, xerrors.Errorf("出力音声ファイルのオープンに失敗しました: %s: %w", filename, err)
 	}
-	defer fout.Close()
 
-	m, err := fout.WriteFrames(data)
-	if err != nil {
-		return xerrors.Errorf("出力音声ファイルの書き込みに失敗しました: %s: %w", filename, err)
-	}
-	if int(m) != len(data) {
-		return xerrors.Errorf("出力音声ファイルの書き込みに失敗しました (%d != %d): %s: %w", filename, err)
-	}
-	fout.WriteSync()
-	return nil
+	ch := make(chan []float64, 100)
+	wait := make(chan struct{}, 1)
+	go func() {
+		defer func() {
+			fout.WriteSync()
+			fout.Close()
+			close(wait)
+		}()
+
+		iLastClip := -fs
+		iCurrent := 0
+		for data := range ch {
+			if len(data) == 0 {
+				continue
+			}
+			for i, v := range data {
+				if -1.0 <= v && v <= 1.0 {
+					continue
+				}
+				if v < -1.0 {
+					data[i] = -1.0
+				} else if 1.0 < v {
+					data[i] = 1.0
+				}
+				if iLastClip+fs <= i {
+					log.Printf("warn: クリッピングが発生しました: %.3f sec", float64(i)/float64(fs))
+					iLastClip = i
+				}
+			}
+			if _, err := fout.WriteFrames(data); err != nil {
+				log.Printf("error: 出力音声ファイルの書き込みに失敗しました: %s: %s", filename, err)
+				break
+			}
+			iCurrent += len(data)
+		}
+	}()
+	return ch, wait, nil
 }
