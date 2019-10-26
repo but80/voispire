@@ -58,11 +58,26 @@ func New(n int, fn func(t float64) float64) Window {
 	return s
 }
 
+// Rect は、矩形窓を生成します。
+func Rect(n int) Window {
+	return New(n, func(t float64) float64 {
+		return 1
+	})
+}
+
 // Hann は、Hann窓を生成します。
 func Hann(n int) Window {
 	return New(n, func(t float64) float64 {
 		a := 2 * math.Pi * t
 		return .5 * (1 - math.Cos(a))
+	})
+}
+
+// SqrtHann は、Hann窓の平方根を生成します。
+func SqrtHann(n int) Window {
+	return New(n, func(t float64) float64 {
+		a := 2 * math.Pi * t
+		return math.Sqrt(.5 * (1 - math.Cos(a)))
 	})
 }
 

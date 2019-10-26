@@ -192,6 +192,8 @@ func render(params portaudio.StreamParameters, input *buffer.WaveSource, outCh <
 		}
 		input.Append(buf)
 	}
+
+	bufferUnderrunAt := time.Unix(0, 0)
 	onOut := func(out [][]float32) {
 		i := 0
 		n := len(out[0])
@@ -210,6 +212,10 @@ func render(params portaudio.StreamParameters, input *buffer.WaveSource, outCh <
 			default:
 				break
 			}
+		}
+		if i < n && endCh != nil && time.Second <= time.Since(bufferUnderrunAt) {
+			log.Printf("warn: buffer underrun")
+			bufferUnderrunAt = time.Now()
 		}
 		for ; i < n; i++ {
 			out[0][i] = 0
