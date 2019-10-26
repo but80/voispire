@@ -3,12 +3,19 @@
 simplevid-go は、とても簡単に利用できるGo言語向けビデオエンコーダです。
 
 - エンコーダに渡したコールバックが1フレームごとに呼び出されるので、その中で画素を描画するだけでビデオを作成することができます。
-- 現時点では、フォーマットは H264 YUV444P に固定されています。
+- 現時点では、フォーマットは H264 YUV420 に固定されています。
 - 使用例は [imageencoder_test.go](imageencoder_test.go), [callbackencoder_test.go](callbackencoder_test.go) をお読みください。
 
-## 依存ライブラリ
+## 必須環境
 
-libavcodec, libavutil, libavformat が必要です。
+- 以下のいずれかのOS
+  - Windows + WSL
+  - Linux
+  - macOS（動作はしますが、作成された動画はQuicktimeで再生できない場合があります）
+- 依存ライブラリ
+  - libavcodec
+  - libavutil
+  - libavformat
 
 ```bash
 # Ubuntu
