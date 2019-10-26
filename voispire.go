@@ -57,7 +57,7 @@ func Start(o Options) error {
 			return xerrors.Errorf("オーディオデバイスのオープンに失敗しました: %w", err)
 		}
 
-		ins, outs, err := listDevices()
+		ins, outs, err := getDevices()
 		if err != nil {
 			return xerrors.Errorf("オーディオデバイス情報の取得に失敗しました: %w", err)
 		}

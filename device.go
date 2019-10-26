@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/but80/voispire/internal/buffer"
 	"github.com/gordonklaus/portaudio"
+	"github.com/mattn/go-runewidth"
+	"github.com/olekukonko/tablewriter"
 	"github.com/saintfish/chardet"
 	"github.com/xlab/closer"
 	"golang.org/x/text/encoding"
@@ -19,6 +22,9 @@ import (
 )
 
 func autoToUTF8(s string) string {
+	if i := strings.IndexRune(s, 0); 0 <= i {
+		s = s[:i]
+	}
 	r, err := chardet.NewTextDetector().DetectBest([]byte(s))
 	if err != nil {
 		return s
@@ -50,6 +56,21 @@ func lessDevice(devs []*portaudio.DeviceInfo) func(i, j int) bool {
 	return func(i, j int) bool {
 		a := devs[i]
 		b := devs[j]
+
+		if a.HostApi.Name < b.HostApi.Name {
+			return true
+		}
+		if b.HostApi.Name < a.HostApi.Name {
+			return false
+		}
+
+		if a.Name < b.Name {
+			return true
+		}
+		if b.Name < a.Name {
+			return false
+		}
+
 		if a.DefaultLowInputLatency < b.DefaultLowInputLatency {
 			return true
 		}
@@ -80,11 +101,12 @@ func lessDevice(devs []*portaudio.DeviceInfo) func(i, j int) bool {
 		if a.MaxOutputChannels < b.MaxOutputChannels {
 			return false
 		}
-		return a.Name < b.Name
+
+		return false
 	}
 }
 
-func listDevices() (ins, outs []*portaudio.DeviceInfo, err error) {
+func getDevices() (ins, outs []*portaudio.DeviceInfo, err error) {
 	devs, err := portaudio.Devices()
 	if err != nil {
 		return nil, nil, err
@@ -104,6 +126,43 @@ func listDevices() (ins, outs []*portaudio.DeviceInfo, err error) {
 	return
 }
 
+func deviceRow(dev *portaudio.DeviceInfo) []string {
+	name := runewidth.Truncate(dev.Name, 50, "...")
+	// name = runewidth.FillRight(name, 50)
+	return []string{
+		dev.HostApi.Name,
+		name,
+		dev.DefaultLowInputLatency.String(),
+		fmt.Sprintf("%vHz", dev.DefaultSampleRate),
+	}
+}
+
+func listDevices(caption string, devices []*portaudio.DeviceInfo, defaultDevice *portaudio.DeviceInfo) {
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetAutoWrapText(false)
+	table.SetBorders(tablewriter.Border{Left: true, Top: false, Right: true, Bottom: false})
+	table.SetCenterSeparator("|")
+	table.SetHeader([]string{"ID", "DRIVER", caption, "LATENCY", "RATE"})
+	table.SetColumnAlignment([]int{
+		tablewriter.ALIGN_RIGHT,
+		tablewriter.ALIGN_LEFT,
+		tablewriter.ALIGN_LEFT,
+		tablewriter.ALIGN_RIGHT,
+		tablewriter.ALIGN_RIGHT,
+	})
+	var data [][]string
+	for i, dev := range devices {
+		id := fmt.Sprintf("%d", i+1)
+		if dev == defaultDevice {
+			id = "* " + id
+		}
+		row := append([]string{id}, deviceRow(dev)...)
+		data = append(data, row)
+	}
+	table.AppendBulk(data)
+	table.Render()
+}
+
 // ListDevices は、オーディオデバイスの一覧を表示します。
 func ListDevices() error {
 	portaudio.Initialize()
@@ -111,7 +170,7 @@ func ListDevices() error {
 		portaudio.Terminate()
 	})
 
-	ins, outs, err := listDevices()
+	ins, outs, err := getDevices()
 	if err != nil {
 		return xerrors.Errorf("オーディオデバイス情報の取得に失敗しました: %w", err)
 	}
@@ -125,35 +184,13 @@ func ListDevices() error {
 	}
 
 	fmt.Println("INPUTS:")
-	for i, dev := range ins {
-		if dev == defaultIn {
-			fmt.Print("* ")
-		} else {
-			fmt.Print("  ")
-		}
-		fmt.Printf("[%2d]", i+1)
-		fmt.Printf(" %-48s:", dev.Name)
-		fmt.Printf(" %s", dev.HostApi.Name)
-		fmt.Printf(" %s", dev.DefaultLowInputLatency)
-		fmt.Printf(" %vHz", dev.DefaultSampleRate)
-		fmt.Println()
-	}
+	fmt.Println()
+	listDevices("INPUT DEVICE NAME", ins, defaultIn)
 	fmt.Println()
 
 	fmt.Println("OUTPUTS:")
-	for i, dev := range outs {
-		if dev == defaultOut {
-			fmt.Print("* ")
-		} else {
-			fmt.Print("  ")
-		}
-		fmt.Printf("[%2d]", i+1)
-		fmt.Printf(" %-48s:", dev.Name)
-		fmt.Printf(" %s", dev.HostApi.Name)
-		fmt.Printf(" %s", dev.DefaultLowOutputLatency)
-		fmt.Printf(" %vHz", dev.DefaultSampleRate)
-		fmt.Println()
-	}
+	fmt.Println()
+	listDevices("OUTPUT DEVICE NAME", outs, defaultOut)
 	fmt.Println()
 
 	return nil
