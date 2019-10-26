@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -12,6 +13,8 @@ import (
 	"github.com/magefile/mage/sh"
 	"github.com/mattn/go-shellwords"
 	"github.com/mattn/go-zglob"
+	"github.com/pkg/fileutils"
+	"golang.org/x/xerrors"
 )
 
 func init() {
@@ -96,7 +99,7 @@ func isNewer(this, that string) bool {
 
 // サブモジュールのチェックアウト
 func Submodules() error {
-	if exists("cmodules/world/makefile") {
+	if exists("cmodules/world/makefile") && exists("cmodules/portaudio/libportaudio64bit.dll") {
 		return nil
 	}
 	if err := sh.RunV("git", "submodule", "init"); err != nil {
@@ -132,7 +135,45 @@ func Build() error {
 	}
 	v = strings.TrimSpace(v)
 	ldflags := fmt.Sprintf(`-X main.version=%s`, v)
+
+	fmt.Println("voispire をビルド中...")
 	return runVWithArgs("go", "build", "-ldflags", ldflags, "./cmd/voispire")
+}
+
+// Make package
+func Pack() error {
+	mg.SerialDeps(Build)
+	files := map[string]string{
+		"README.md": "README.md",
+		"LICENSE":   "LICENSE",
+	}
+	name := fmt.Sprintf("voispire-%s", runtime.GOOS)
+	distDir := filepath.FromSlash("dist/" + name)
+	var arcCmd string
+	var arcOpts []string
+
+	switch runtime.GOOS {
+	case "windows":
+		files["voispire.exe"] = "voispire.exe"
+		files["libportaudio-2.dll"] = "cmodules/portaudio/libportaudio64bit.dll"
+		arcCmd = "powershell"
+		arcOpts = []string{"compress-archive", "-Force", distDir, distDir + ".zip"}
+	default:
+		return xerrors.Errorf("%s用のpackタスクは未実装です", runtime.GOOS)
+	}
+
+	fmt.Printf("%s用のパッケージを作成中...\n", runtime.GOOS)
+	_ = os.MkdirAll(distDir, 0755)
+	for dst, src := range files {
+		dst = filepath.FromSlash(dst)
+		dst = filepath.Join(distDir, dst)
+		src = filepath.FromSlash(src)
+		if err := fileutils.CopyFile(dst, src); err != nil {
+			return err
+		}
+	}
+
+	return runVWithArgs(arcCmd, arcOpts...)
 }
 
 // Run program

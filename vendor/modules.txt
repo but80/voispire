@@ -25,6 +25,8 @@ github.com/mattn/go-zglob
 github.com/mattn/go-zglob/fastwalk
 # github.com/mkb218/gosndfile v0.0.0-20171006180803-e0c9ef895ee2
 github.com/mkb218/gosndfile/sndfile
+# github.com/pkg/fileutils v0.0.0-20181114200823-d734b7f202ba
+github.com/pkg/fileutils
 # github.com/pkg/profile v1.3.0
 github.com/pkg/profile
 # github.com/pmezard/go-difflib v1.0.0

@@ -11,6 +11,7 @@ require (
 	github.com/mattn/go-shellwords v1.0.3
 	github.com/mattn/go-zglob v0.0.1
 	github.com/mkb218/gosndfile v0.0.0-20171006180803-e0c9ef895ee2
+	github.com/pkg/fileutils v0.0.0-20181114200823-d734b7f202ba
 	github.com/pkg/profile v1.3.0
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/saintfish/chardet v0.0.0-20120816061221-3af4cd4741ca
