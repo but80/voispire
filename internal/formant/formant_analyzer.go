@@ -16,11 +16,13 @@ import (
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
+	"gonum.org/v1/plot/vg/draw"
+	"gonum.org/v1/plot/vg/vgimg"
 )
 
 const (
 	analyzerFilename     = "analyzer.mp4"
-	analyzerFrameLimit   = 60
+	analyzerFrameLimit   = 20
 	analyzerSlowPlayRate = 4
 )
 
@@ -29,12 +31,16 @@ var (
 		Width:   960,
 		Height:  540,
 		BitRate: 8 * 1024 * 1024,
-		GOPSize: 10,
+		GOPSize: 30,
 		FPS:     30,
 	}
 	analyzerWait    = make(chan struct{})
 	analyzerImageCh = make(chan image.Image, 100)
 )
+
+func init() {
+	// plot.DefaultFont = "Times-Bold"
+}
 
 func toTimePlotLine(data []float64, fs int, c color.Color) *plotter.Line {
 	xys := make(plotter.XYs, len(data))
@@ -57,7 +63,7 @@ func toSpecPlotLine(data []float64, fs int, c color.Color) *plotter.Line {
 	xr := (float64(fs) / 2) / float64(len(data))
 	for i, v := range data {
 		xys[i].X = float64(i+1) * xr
-		xys[i].Y = -96
+		xys[i].Y = -1e100
 		if 0 < v {
 			xys[i].Y = 20 * math.Log10(v)
 		}
@@ -70,23 +76,45 @@ func toSpecPlotLine(data []float64, fs int, c color.Color) *plotter.Line {
 	return line
 }
 
-func toImage(p *plot.Plot) (image.Image, error) {
+func toImage(plots [][]*plot.Plot) (image.Image, error) {
 	w := vg.Length(analyzerVidOpts.Width) * vg.Inch / 96
 	h := vg.Length(analyzerVidOpts.Height) * vg.Inch / 96
-	writer, err := p.WriterTo(w, h, "tiff")
-	if err != nil {
-		return nil, err
+	img := vgimg.New(w, h)
+	dc := draw.New(img)
+
+	rows := len(plots)
+	cols := len(plots[0])
+	pad := h / 20
+	tiles := draw.Tiles{
+		Rows:      rows,
+		Cols:      cols,
+		PadTop:    pad,
+		PadBottom: pad,
+		PadRight:  pad,
+		PadLeft:   pad,
+		PadX:      pad,
+		PadY:      pad,
 	}
+
+	canvases := plot.Align(plots, tiles, dc)
+	for i := 0; i < rows; i++ {
+		for j := 0; j < cols; j++ {
+			if plots[i][j] != nil {
+				plots[i][j].Draw(canvases[i][j])
+			}
+		}
+	}
+
+	tiff := vgimg.TiffCanvas{Canvas: img}
 	buf := bytes.NewBuffer(nil)
-	_, err = writer.WriteTo(buf)
+	if _, err := tiff.WriteTo(buf); err != nil {
+		return nil, err
+	}
+	result, _, err := image.Decode(buf)
 	if err != nil {
 		return nil, err
 	}
-	img, _, err := image.Decode(buf)
-	if err != nil {
-		return nil, err
-	}
-	return img, nil
+	return result, nil
 }
 
 func cmplxAbs(data []complex128) []float64 {
@@ -117,34 +145,38 @@ func analyzerFrame(data *analyzerData) {
 	}
 	log.Printf("debug: FFT process frame %d", analyzerFrameCounter)
 
-	p, err := plot.New()
+	pt, err := plot.New()
 	if err != nil {
 		panic(err)
 	}
+	wave1 := fourier.NewFFT((len(data.spec1)-1)*2).Sequence(nil, data.spec1)
+	pt.Add(toTimePlotLine(wave1, data.fs, color.RGBA{R: 0, G: 192, B: 255, A: 255}))
+	pt.Add(toTimePlotLine(data.wave0, data.fs, color.RGBA{R: 255, G: 112, B: 0, A: 255}))
+	pt.Title.Text = "Time Domain"
+	pt.X.Label.Text = "Time [s]"
+	pt.Y.Label.Text = "Amplitude"
+	pt.Y.Min = -1
+	pt.Y.Max = 1
 
-	if true {
-		wave1 := fourier.NewFFT((len(data.spec1)-1)*2).Sequence(nil, data.spec1)
-		p.Add(toTimePlotLine(wave1, data.fs, color.RGBA{R: 0, G: 96, B: 255, A: 255}))
-		p.Add(toTimePlotLine(data.wave0, data.fs, color.RGBA{R: 255, G: 0, B: 0, A: 255}))
-		p.Title.Text = "voispire"
-		p.X.Label.Text = "Time"
-		p.Y.Label.Text = "Amp."
-		p.Y.Min = -1
-		p.Y.Max = 1
-	} else {
-		p.Add(toSpecPlotLine(cmplxAbs(data.spec1), data.fs, color.RGBA{R: 0, G: 96, B: 255, A: 255}))
-		p.Add(toSpecPlotLine(cmplxAbs(data.spec0), data.fs, color.RGBA{R: 255, G: 128, B: 128, A: 255}))
-		p.Add(toSpecPlotLine(data.envelope, data.fs, color.RGBA{R: 255, G: 0, B: 0, A: 255}))
-		p.Title.Text = "voispire"
-		p.X.Scale = plot.LogScale{}
-		p.X.Tick.Marker = plot.LogTicks{}
-		p.X.Label.Text = "Freq."
-		p.Y.Label.Text = "Amp."
-		p.Y.Min = -90
-		p.Y.Max = 0
+	pf, err := plot.New()
+	if err != nil {
+		panic(err)
 	}
+	pf.Add(toSpecPlotLine(cmplxAbs(data.spec1), data.fs, color.RGBA{R: 0, G: 192, B: 255, A: 255}))
+	pf.Add(toSpecPlotLine(cmplxAbs(data.spec0), data.fs, color.RGBA{R: 255, G: 112, B: 0, A: 255}))
+	pf.Add(toSpecPlotLine(data.envelope, data.fs, color.RGBA{R: 255, G: 0, B: 0, A: 255}))
+	pf.Title.Text = "Frequency Domain"
+	// pf.X.Scale = plot.LogScale{}
+	// pf.X.Tick.Marker = plot.LogTicks{}
+	pf.X.Label.Text = "Frequency [Hz]"
+	pf.Y.Label.Text = "Amplitude [dB]"
+	pf.Y.Min = -100
+	pf.Y.Max = 0
 
-	img, err := toImage(p)
+	img, err := toImage([][]*plot.Plot{
+		{pt},
+		{pf},
+	})
 	if err != nil {
 		panic(err)
 	}

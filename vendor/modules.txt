@@ -68,10 +68,10 @@ gonum.org/v1/plot
 gonum.org/v1/plot/plotter
 gonum.org/v1/plot/vg
 gonum.org/v1/plot/vg/draw
+gonum.org/v1/plot/vg/vgimg
 gonum.org/v1/plot/palette
 gonum.org/v1/plot/tools/bezier
 gonum.org/v1/plot/vg/fonts
 gonum.org/v1/plot/vg/vgeps
-gonum.org/v1/plot/vg/vgimg
 gonum.org/v1/plot/vg/vgpdf
 gonum.org/v1/plot/vg/vgsvg
