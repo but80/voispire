@@ -91,7 +91,7 @@ static const char* initialize(struct CEncoder *e, const char *filename) {
 	e->c->framerate = (AVRational){e->fps, 1};
 	e->c->gop_size = e->gop_size; // emit one intra frame every these frames
 	e->c->max_b_frames=1;
-	e->c->pix_fmt = AV_PIX_FMT_YUV444P;
+	e->c->pix_fmt = AV_PIX_FMT_YUV420P;
 	// open it
 	if (avcodec_open2(e->c, e->codec, NULL) < 0) {
 		return "could not open codec";
@@ -146,7 +146,6 @@ import "C"
 
 import (
 	"errors"
-	"image/color"
 	"unsafe"
 )
 
@@ -183,19 +182,19 @@ func (e *callbackEncoder) Frame() int {
 	return int(e.cEncoder.frame)
 }
 
-// SetYUV は、位置 (x, y) にYUVカラー (cy, cu, cv) の画素を描画します。
-func (e *callbackEncoder) SetYUV(x, y, cy, cu, cv int) {
-	C.set_data(e.cEncoder, 0, C.int(x), C.int(y), C.uint8_t(cy))
-	C.set_data(e.cEncoder, 1, C.int(x), C.int(y), C.uint8_t(cu))
-	C.set_data(e.cEncoder, 2, C.int(x), C.int(y), C.uint8_t(cv))
+// SetY は、Yチャンネルの位置 (x, y) における画素値を設定します。
+func (e *callbackEncoder) SetY(x, y int, value uint8) {
+	C.set_data(e.cEncoder, 0, C.int(x), C.int(y), C.uint8_t(value))
 }
 
-// SetRGB は、位置 (x, y) にRGBカラー (cr, cg, cb) の画素を描画します。
-func (e *callbackEncoder) SetRGB(x, y, cr, cg, cb int) {
-	cy, cu, cv := color.RGBToYCbCr(uint8(cr), uint8(cg), uint8(cb))
-	C.set_data(e.cEncoder, 0, C.int(x), C.int(y), C.uint8_t(cy))
-	C.set_data(e.cEncoder, 1, C.int(x), C.int(y), C.uint8_t(cu))
-	C.set_data(e.cEncoder, 2, C.int(x), C.int(y), C.uint8_t(cv))
+// SetU は、Uチャンネルの位置 (x*2, y*2) - (x*2+1, y*2+1) における画素値を設定します。
+func (e *callbackEncoder) SetU(xHalf, yHalf int, value uint8) {
+	C.set_data(e.cEncoder, 1, C.int(xHalf), C.int(yHalf), C.uint8_t(value))
+}
+
+// SetV は、Vチャンネルの位置 (x*2, y*2) - (x*2+1, y*2+1) における画素値を設定します。
+func (e *callbackEncoder) SetV(xHalf, yHalf int, value uint8) {
+	C.set_data(e.cEncoder, 2, C.int(xHalf), C.int(yHalf), C.uint8_t(value))
 }
 
 // EncodeToFile は、ビデオをエンコードしてファイルに保存します。

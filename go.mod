@@ -3,14 +3,17 @@ module github.com/but80/voispire
 go 1.12
 
 require (
-	github.com/but80/simplevid-go v0.2.0
+	github.com/but80/simplevid-go v0.3.0
 	github.com/comail/colog v0.0.0-20160416085026-fba8e7b1f46c
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gordonklaus/portaudio v0.0.0-20170806144149-e66c30a9c4ca
 	github.com/magefile/mage v1.9.0
+	github.com/mattn/go-runewidth v0.0.5
 	github.com/mattn/go-shellwords v1.0.3
 	github.com/mattn/go-zglob v0.0.1
 	github.com/mkb218/gosndfile v0.0.0-20171006180803-e0c9ef895ee2
+	github.com/olekukonko/tablewriter v0.0.1
+	github.com/pkg/fileutils v0.0.0-20181114200823-d734b7f202ba
 	github.com/pkg/profile v1.3.0
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/saintfish/chardet v0.0.0-20120816061221-3af4cd4741ca

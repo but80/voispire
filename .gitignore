@@ -3,6 +3,7 @@
 /*.wav
 /cpu.pprof
 /*.mp4
+*.bak
 
 
 # Created by https://www.gitignore.io/api/osx,windows,code,intellij,go,python

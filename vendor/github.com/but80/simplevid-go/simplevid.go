@@ -27,8 +27,10 @@ type CallbackEncoder interface {
 	Options() EncoderOptions
 	// Frame は、現在エンコード中のフレーム番号を返します。
 	Frame() int
-	// SetYUV は、位置 (x, y) にYUVカラー (cy, cu, cv) の画素を描画します。
-	SetYUV(x, y, cy, cu, cv int)
-	// SetRGB は、位置 (x, y) にRGBカラー (cr, cg, cb) の画素を描画します。
-	SetRGB(x, y, cr, cg, cb int)
+	// SetY は、Yチャンネルの位置 (x, y) における画素値を設定します。
+	SetY(x, y int, value uint8)
+	// SetU は、Uチャンネルの位置 (x*2, y*2) - (x*2+1, y*2+1) における画素値を設定します。
+	SetU(xHalf, yHalf int, value uint8)
+	// SetV は、Vチャンネルの位置 (x*2, y*2) - (x*2+1, y*2+1) における画素値を設定します。
+	SetV(xHalf, yHalf int, value uint8)
 }

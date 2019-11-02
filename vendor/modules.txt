@@ -1,6 +1,6 @@
 # github.com/ajstarks/svgo v0.0.0-20180226025133-644b8db467af
 github.com/ajstarks/svgo
-# github.com/but80/simplevid-go v0.2.0
+# github.com/but80/simplevid-go v0.3.0
 github.com/but80/simplevid-go
 # github.com/comail/colog v0.0.0-20160416085026-fba8e7b1f46c
 github.com/comail/colog
@@ -18,6 +18,8 @@ github.com/jung-kurt/gofpdf
 # github.com/magefile/mage v1.9.0
 github.com/magefile/mage/mg
 github.com/magefile/mage/sh
+# github.com/mattn/go-runewidth v0.0.5
+github.com/mattn/go-runewidth
 # github.com/mattn/go-shellwords v1.0.3
 github.com/mattn/go-shellwords
 # github.com/mattn/go-zglob v0.0.1
@@ -25,6 +27,10 @@ github.com/mattn/go-zglob
 github.com/mattn/go-zglob/fastwalk
 # github.com/mkb218/gosndfile v0.0.0-20171006180803-e0c9ef895ee2
 github.com/mkb218/gosndfile/sndfile
+# github.com/olekukonko/tablewriter v0.0.1
+github.com/olekukonko/tablewriter
+# github.com/pkg/fileutils v0.0.0-20181114200823-d734b7f202ba
+github.com/pkg/fileutils
 # github.com/pkg/profile v1.3.0
 github.com/pkg/profile
 # github.com/pmezard/go-difflib v1.0.0

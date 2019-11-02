@@ -32,6 +32,15 @@ type Options struct {
 
 // Start は、音声変換を開始します。
 func Start(o Options) error {
+	if err := start(o); err != nil {
+		return err
+	}
+	closer.Close()
+	closer.Hold()
+	return nil
+}
+
+func start(o Options) error {
 	var f0 []float64
 	if o.Transpose != 0 {
 		log.Print("info: 基本周波数を推定中...")
@@ -45,6 +54,11 @@ func Start(o Options) error {
 		f0, _ = world.Harvest(src, fs, o.FramePeriodMsec, f0Floor, f0Ceil)
 	}
 
+	// 入力ファイルのみ指定時
+	if o.InFile != "" && o.OutFile == "" {
+		o.OutDevID = -1 // デフォルト出力デバイスを選択
+	}
+
 	var params portaudio.StreamParameters
 	if o.InDevID != 0 || o.OutDevID != 0 {
 		var err error
@@ -54,13 +68,20 @@ func Start(o Options) error {
 		}
 	}
 
+	waitOutput := make(chan struct{}, 1)
+	closer.Bind(func() {
+		log.Print("debug: binded <-waitOutput")
+		<-waitOutput
+		log.Print("debug: binded <-waitOutput finished")
+	})
+
 	var input *buffer.WaveSource
-	var paInput *buffer.WaveSource
+	var audioInput *buffer.WaveSource
 	var fs int
 
 	if o.InFile == "" {
-		paInput = buffer.NewWaveSource()
-		input = paInput
+		audioInput = buffer.NewWaveSource()
+		input = audioInput
 		// FIXME: 入力デバイスの周波数レートをfsに設定
 		fs = 44100
 	} else {
@@ -70,6 +91,10 @@ func Start(o Options) error {
 			return xerrors.Errorf("音声ファイルのオープンに失敗しました: %w", err)
 		}
 	}
+	closer.Bind(func() {
+		log.Print("debug: closing input")
+		input.Close()
+	})
 
 	fsOut := fs
 	if 0 < o.Rate {
@@ -102,6 +127,7 @@ func Start(o Options) error {
 
 	var fileOutCh chan<- []float64
 	var fileOutWait <-chan struct{}
+	waitFileOut := func() {}
 	if o.OutFile != "" {
 		var err error
 		fileOutCh, fileOutWait, err = wav.StartSave(o.OutFile, fsOut)
@@ -109,16 +135,18 @@ func Start(o Options) error {
 			return xerrors.Errorf("出力ファイルのオープンに失敗しました: %w", err)
 		}
 		log.Print("info: ファイル出力を開始しました")
-		defer func() {
-			portaudio.Terminate()
+		waitFileOut = func() {
+			log.Print("debug: close(fileOutCh)")
 			close(fileOutCh)
+			log.Print("debug: <-fileOutWait")
 			<-fileOutWait
-			log.Print("info: 完了")
-		}()
+			log.Print("debug: <-fileOutWait finished")
+			log.Print("info: ファイル出力完了")
+		}
 	}
 
 	if o.InDevID != 0 || o.OutDevID != 0 {
-		endCh, stream, err := render(params, paInput, outCh, fileOutCh)
+		waitInput, stream, err := render(params, audioInput, outCh, fileOutCh)
 		if err != nil {
 			return xerrors.Errorf("出力ストリームのオープンに失敗しました: %w", err)
 		}
@@ -126,23 +154,38 @@ func Start(o Options) error {
 			mod3.resampleCoef = float64(stream.Info().SampleRate) / float64(fs)
 		}
 		log.Print("info: 変換を開始しました")
-		lastmod.Start()
-		<-endCh
-		time.Sleep(time.Second)
+		go func() {
+			lastmod.Start()
+			log.Print("debug: <-waitInput")
+			<-waitInput
+			log.Print("debug: <-waitInput finished")
+			time.Sleep(time.Second)
+			waitFileOut()
+			log.Print("debug: close(waitOutput)")
+			close(waitOutput)
+		}()
 	} else {
 		lastmod.Start()
 		result := make([]float64, 0)
 		log.Print("info: 変換中...")
-		// FIXME: 一定サイズごとに出力
-		for {
-			v, ok := <-outCh
-			if !ok {
-				break
+		go func() {
+			// FIXME: 一定サイズごとに出力
+			for {
+				v, ok := <-outCh
+				if !ok {
+					break
+				}
+				result = append(result, v)
 			}
-			result = append(result, v)
-		}
-		fileOutCh <- result
-		log.Printf("debug: OUT: %d samples, fs=%d", len(result), fsOut)
+			fileOutCh <- result
+			log.Printf("debug: OUT: %d samples, fs=%d", len(result), fsOut)
+			waitFileOut()
+			log.Print("debug: close(waitOutput)")
+			close(waitOutput)
+		}()
 	}
+	log.Print("debug: <-waitOutput")
+	<-waitOutput
+	log.Print("debug: <-waitOutput finished")
 	return nil
 }

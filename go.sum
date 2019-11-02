@@ -2,6 +2,8 @@ github.com/ajstarks/svgo v0.0.0-20180226025133-644b8db467af h1:wVe6/Ea46ZMeNkQjj
 github.com/ajstarks/svgo v0.0.0-20180226025133-644b8db467af/go.mod h1:K08gAheRH3/J6wwsYMMT4xOr94bZjxIelGM0+d/wbFw=
 github.com/but80/simplevid-go v0.2.0 h1:eY/XpSy0f2dNrQwQtSPT1HOHTkkFJHITu6IqW0v/IIQ=
 github.com/but80/simplevid-go v0.2.0/go.mod h1:sPW9NKmiXGNbykZPhCHxKo5hv+z4wvZMxJcTJoppYT0=
+github.com/but80/simplevid-go v0.3.0 h1:GLcfsyLQltaHCRbDnF+bHLwkkV7a61EhxjBjPLB42nQ=
+github.com/but80/simplevid-go v0.3.0/go.mod h1:sPW9NKmiXGNbykZPhCHxKo5hv+z4wvZMxJcTJoppYT0=
 github.com/comail/colog v0.0.0-20160416085026-fba8e7b1f46c h1:bzYQ6WpR+t35/y19HUkolcg7SYeWZ15IclC9Z4naGHI=
 github.com/comail/colog v0.0.0-20160416085026-fba8e7b1f46c/go.mod h1:1WwgAwMKQLYG5I2FBhpVx94YTOAuB2W59IZ7REjSE6Y=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
@@ -16,12 +18,18 @@ github.com/jung-kurt/gofpdf v1.0.3-0.20190309125859-24315acbbda5 h1:PJr+ZMXIecYc
 github.com/jung-kurt/gofpdf v1.0.3-0.20190309125859-24315acbbda5/go.mod h1:7Id9E/uU8ce6rXgefFLlgrJj/GYY22cpxn+r32jIOes=
 github.com/magefile/mage v1.9.0 h1:t3AU2wNwehMCW97vuqQLtw6puppWXHO+O2MHo5a50XE=
 github.com/magefile/mage v1.9.0/go.mod h1:z5UZb/iS3GoOSn0JgWuiw7dxlurVYTu+/jHXqQg881A=
+github.com/mattn/go-runewidth v0.0.5 h1:jrGtp51JOKTWgvLFzfG6OtZOJcK2sEnzc/U+zw7TtbA=
+github.com/mattn/go-runewidth v0.0.5/go.mod h1:H031xJmbD/WCDINGzjvQ9THkh0rPKHF+m2gUSrubnMI=
 github.com/mattn/go-shellwords v1.0.3 h1:K/VxK7SZ+cvuPgFSLKi5QPI9Vr/ipOf4C1gN+ntueUk=
 github.com/mattn/go-shellwords v1.0.3/go.mod h1:3xCvwCdWdlDJUrvuMn7Wuy9eWs4pE8vqg+NOMyg4B2o=
 github.com/mattn/go-zglob v0.0.1 h1:xsEx/XUoVlI6yXjqBK062zYhRTZltCNmYPx6v+8DNaY=
 github.com/mattn/go-zglob v0.0.1/go.mod h1:9fxibJccNxU2cnpIKLRRFA7zX7qhkJIQWBb449FYHOo=
 github.com/mkb218/gosndfile v0.0.0-20171006180803-e0c9ef895ee2 h1:VxuHU1GzpitRcSRQLMsYzmiR4AWli0ZIAwuay3nAdng=
 github.com/mkb218/gosndfile v0.0.0-20171006180803-e0c9ef895ee2/go.mod h1:Bt3M0pOPhXFJld5U1F484ASifG9E1Tych5ukWdGXnxw=
+github.com/olekukonko/tablewriter v0.0.1 h1:b3iUnf1v+ppJiOfNX4yxxqfWKMQPZR5yoh8urCTFX88=
+github.com/olekukonko/tablewriter v0.0.1/go.mod h1:vsDQFd/mU46D+Z4whnwzcISnGGzXWMclvtLoiIKAKIo=
+github.com/pkg/fileutils v0.0.0-20181114200823-d734b7f202ba h1:6N4YMhhXMxaJf8EzKZU9YcE3Q9J2H0rbhmmfvmDOx9E=
+github.com/pkg/fileutils v0.0.0-20181114200823-d734b7f202ba/go.mod h1:Wr30770SHCR9V2+WsPUyQ/O8mM3KpOZKo3bZEjhCdok=
 github.com/pkg/profile v1.3.0 h1:OQIvuDgm00gWVWGTf4m4mCt6W1/0YqU7Ntg0mySWgaI=
 github.com/pkg/profile v1.3.0/go.mod h1:hJw3o1OdXxsrSjjVksARp5W95eeEaEfptyVZyv6JUPA=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
