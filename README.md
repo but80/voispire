@@ -101,12 +101,39 @@ OPTIONS:
 ### 必須環境
 
 - 以下のいずれかのOS
-  - Windows + MinGW
+  - Windows + MSYS2 + MinGW-w64
   - macOS (動作未検証)
   - Linux (動作未検証)
 - 以下のライブラリ
   - [PortAudio](http://www.portaudio.com/)
 - [Go 1.12](https://golang.org/)
+
+### Windows開発環境のセットアップ手順
+
+1. [MSYS2](https://www.msys2.org/) をインストール
+   - [参考記事](https://qiita.com/Ted-HM/items/4f2feb9fdacb6c72083c)
+   - Chocolatey を使用している場合は `choco install msys2` にて `C:\tools\msys64` にインストールできます
+2. `C:\tools\msys64\mingw64.exe` より MSYS2+MinGW-w64 環境を起動
+3. `pacman -Syu` にて更新後、一旦シェルを閉じて再度起動後に `pacman -Su` （いずれも必要なら管理者権限で）
+4. 必要パッケージ・ツール類をインストール
+   
+   ```bash
+   pacman -Sy base-devel
+   pacman -Sy msys2-devel
+   pacman -Sy git
+   pacman -Sy mingw-w64-x86_64-toolchain
+   pacman -Sy mingw-w64-x86_64-go
+   pacman -Sy mingw-w64-x86_64-portaudio
+   
+   # Setup Go
+   echo 'export GOPATH="$HOME/go"' >> ~/.bashrc
+   echo 'export PATH="$GOPATH/bin:$PATH"' >> ~/.bashrc
+   source ~/.bashrc
+   
+   # Setup Mage
+   GO111MODULES=off go get -u -d github.com/magefile/mage
+   ( cd "$GOPATH/src/github.com/magefile/mage" && go run bootstrap.go )
+   ```
 
 ### ビルド手順
 
