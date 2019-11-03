@@ -167,6 +167,7 @@ func listDevices(caption string, devices []*portaudio.DeviceInfo, defaultDevice 
 func ListDevices() error {
 	portaudio.Initialize()
 	closer.Bind(func() {
+		log.Print("debug: terminating PortAudio")
 		portaudio.Terminate()
 	})
 
@@ -212,8 +213,45 @@ func join(input <-chan buffer.Shape) <-chan float64 {
 	return out
 }
 
-func render(params portaudio.StreamParameters, input *buffer.WaveSource, outCh <-chan float64) (chan struct{}, *portaudio.Stream, error) {
-	endCh := make(chan struct{})
+func initAudio(o Options) (portaudio.StreamParameters, error) {
+	portaudio.Initialize()
+	closer.Bind(func() {
+		log.Print("debug: terminating PortAudio")
+		portaudio.Terminate()
+	})
+	hostapi, err := portaudio.DefaultHostApi()
+	if err != nil {
+		return portaudio.StreamParameters{}, xerrors.Errorf("オーディオデバイスのオープンに失敗しました: %w", err)
+	}
+
+	ins, outs, err := getDevices()
+	if err != nil {
+		return portaudio.StreamParameters{}, xerrors.Errorf("オーディオデバイス情報の取得に失敗しました: %w", err)
+	}
+
+	var inDev *portaudio.DeviceInfo
+	if o.InDevID != 0 {
+		inDev = hostapi.DefaultInputDevice
+		if 1 <= o.InDevID && o.InDevID <= len(ins) {
+			inDev = ins[o.InDevID-1]
+		}
+		log.Printf("info: Input device: %s\n", inDev.Name)
+	}
+
+	var outDev *portaudio.DeviceInfo
+	if o.OutDevID != 0 {
+		outDev = hostapi.DefaultOutputDevice
+		if 1 <= o.OutDevID && o.OutDevID <= len(outs) {
+			outDev = outs[o.OutDevID-1]
+		}
+		log.Printf("info: Output device: %s\n", outDev.Name)
+	}
+
+	return portaudio.LowLatencyParameters(inDev, outDev), nil
+}
+
+func render(params portaudio.StreamParameters, input *buffer.WaveSource, outCh <-chan float64, fileOutCh chan<- []float64) (<-chan struct{}, *portaudio.Stream, error) {
+	waitCh := make(chan struct{})
 	onIn := func(in [][]float32) {
 		if len(in) == 0 {
 			return
@@ -227,32 +265,39 @@ func render(params portaudio.StreamParameters, input *buffer.WaveSource, outCh <
 	}
 
 	bufferUnderrunAt := time.Unix(0, 0)
+	f64buf := make([]float64, 0)
 	onOut := func(out [][]float32) {
 		i := 0
 		n := len(out[0])
+		f64buf = f64buf[:0]
 		for ; i < n; i++ {
 			select {
 			case v, ok := <-outCh:
 				if !ok {
-					if endCh != nil {
-						close(endCh)
-						endCh = nil
+					if waitCh != nil {
+						close(waitCh)
+						waitCh = nil
 					}
 					break
 				}
 				out[0][i] = float32(v)
 				out[1][i] = float32(v)
+				f64buf = append(f64buf, v)
 			default:
 				break
 			}
 		}
-		if i < n && endCh != nil && time.Second <= time.Since(bufferUnderrunAt) {
+		if i < n && waitCh != nil && time.Second <= time.Since(bufferUnderrunAt) {
 			log.Printf("warn: buffer underrun")
 			bufferUnderrunAt = time.Now()
 		}
 		for ; i < n; i++ {
 			out[0][i] = 0
 			out[1][i] = 0
+		}
+		if fileOutCh != nil {
+			// FIXME: closeされている可能性、このコールバックからは処理を分離
+			fileOutCh <- f64buf
 		}
 	}
 
@@ -279,5 +324,5 @@ func render(params portaudio.StreamParameters, input *buffer.WaveSource, outCh <
 	if err := stream.Start(); err != nil {
 		return nil, nil, err
 	}
-	return endCh, stream, nil
+	return waitCh, stream, nil
 }

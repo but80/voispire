@@ -10,6 +10,7 @@ type WaveSource struct {
 	index  int
 	buffer []float64
 	notify chan struct{}
+	closed bool
 	mutex  sync.Mutex
 }
 
@@ -24,6 +25,9 @@ func NewWaveSource() *WaveSource {
 func (s *WaveSource) Append(data []float64) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	if s.closed {
+		return
+	}
 	c0 := cap(s.buffer)
 	s.buffer = append(s.buffer, data...)
 	c1 := cap(s.buffer)
@@ -37,7 +41,10 @@ func (s *WaveSource) Append(data []float64) {
 
 // Close は、ソース波形の供給を終了します。
 func (s *WaveSource) Close() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	close(s.notify)
+	s.closed = true
 }
 
 func (s *WaveSource) readAsync(begin, end int) ([]float64, bool) {

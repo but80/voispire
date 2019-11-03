@@ -1,6 +1,6 @@
 [submodule "cmodules/world"]
 	path = cmodules/world
-	url = https://github.com/but80/World.git
+	url = https://github.com/mmorise/World.git
 [submodule "cmodules/portaudio"]
 	path = cmodules/portaudio
 	url = https://github.com/spatialaudio/portaudio-binaries.git

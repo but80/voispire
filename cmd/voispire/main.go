@@ -26,6 +26,10 @@ var commonFlags = []cli.Flag{
 		Name:  "formant, f",
 		Usage: "フォルマントシフト量 [半音]",
 	},
+	cli.IntFlag{
+		Name:  "rate, r",
+		Usage: "ファイル出力サンプリング周波数（省略時は入力と同じ）",
+	},
 	cli.BoolFlag{
 		Name:  "verbose, v",
 		Usage: "詳細を表示",
@@ -100,22 +104,22 @@ var startCmd = cli.Command{
 	Name:      "start",
 	Aliases:   []string{"s"},
 	Usage:     "ストリーミングを開始します",
-	ArgsUsage: "[ <input-device> [ <output-device> ] ]",
+	ArgsUsage: "[ <input-device> [ <output-device> [ <output-file> ] ] ]",
 	Flags:     commonFlags,
 	Action: func(ctx *cli.Context) error {
 		o, err := parseFlags(ctx)
 		if err != nil {
 			return err
 		}
-
 		if 1 <= ctx.NArg() {
 			o.InDevID, _ = strconv.Atoi(ctx.Args()[0])
 		}
-
 		if 2 <= ctx.NArg() {
 			o.OutDevID, _ = strconv.Atoi(ctx.Args()[1])
 		}
-
+		if 3 <= ctx.NArg() {
+			o.OutFile = ctx.Args()[2]
+		}
 		if err := voispire.Start(o); err != nil {
 			return cli.NewExitError(err, 1)
 		}
@@ -139,10 +143,6 @@ var convertCmd = cli.Command{
 			Usage: "フレームピリオド [msec]",
 			Value: 5.0,
 		},
-		cli.IntFlag{
-			Name:  "rate, r",
-			Usage: "出力サンプリング周波数（省略時は入力と同じ）",
-		},
 	),
 	Action: func(ctx *cli.Context) error {
 		o, err := parseFlags(ctx)
@@ -158,6 +158,7 @@ var convertCmd = cli.Command{
 			o.InFile = ctx.Args()[0]
 		}
 
+		// TODO: 第2引数省略時を play サブコマンドに分離
 		if 2 <= ctx.NArg() {
 			o.OutFile = ctx.Args()[1]
 		}
