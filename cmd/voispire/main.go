@@ -158,6 +158,7 @@ var convertCmd = cli.Command{
 			o.InFile = ctx.Args()[0]
 		}
 
+		// TODO: 第2引数省略時を play サブコマンドに分離
 		if 2 <= ctx.NArg() {
 			o.OutFile = ctx.Args()[1]
 		}

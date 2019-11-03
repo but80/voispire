@@ -169,7 +169,7 @@ func start(o Options) error {
 		result := make([]float64, 0)
 		log.Print("info: 変換中...")
 		go func() {
-			// FIXME: 一定サイズごとに出力
+			// TODO: 一定サイズごとに出力
 			for {
 				v, ok := <-outCh
 				if !ok {

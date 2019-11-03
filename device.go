@@ -296,7 +296,7 @@ func render(params portaudio.StreamParameters, input *buffer.WaveSource, outCh <
 			out[1][i] = 0
 		}
 		if fileOutCh != nil {
-			// FIXME: closeされている可能性
+			// FIXME: closeされている可能性、このコールバックからは処理を分離
 			fileOutCh <- f64buf
 		}
 	}
