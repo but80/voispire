@@ -3,119 +3,34 @@
 package formant
 
 import (
-	"bytes"
+	"fmt"
 	"image"
 	"image/color"
 	"log"
-	"math"
 	"math/cmplx"
-	"sync"
 
 	"github.com/but80/simplevid-go"
 	"gonum.org/v1/gonum/fourier"
 	"gonum.org/v1/plot"
-	"gonum.org/v1/plot/plotter"
-	"gonum.org/v1/plot/vg"
-	"gonum.org/v1/plot/vg/draw"
-	"gonum.org/v1/plot/vg/vgimg"
 )
 
 const (
-	analyzerFilename     = "analyzer.mp4"
-	analyzerFrameLimit   = 20
-	analyzerSlowPlayRate = 4
+	analyzerFilename  = "analyzer.mp4"
+	analyzerTimeLimit = 1.0 // ビデオ出力を打ち切る分析時間
+	analyzerPlayRate  = 1.0 // ビデオの再生速度（1.0未満でスローモーション）
 )
 
 var (
 	analyzerVidOpts = simplevid.EncoderOptions{
-		Width:   960,
-		Height:  540,
-		BitRate: 8 * 1024 * 1024,
+		Width:   1920,
+		Height:  1200,
+		BitRate: 25 * 1024 * 1024,
 		GOPSize: 30,
 		FPS:     30,
 	}
 	analyzerWait    = make(chan struct{})
 	analyzerImageCh = make(chan image.Image, 100)
 )
-
-func init() {
-	// plot.DefaultFont = "Times-Bold"
-}
-
-func toTimePlotLine(data []float64, fs int, c color.Color) *plotter.Line {
-	xys := make(plotter.XYs, len(data))
-	xr := 1 / float64(fs)
-	for i, v := range data {
-		xys[i].X = float64(i) * xr
-		xys[i].Y = v
-	}
-	line, _ := plotter.NewLine(xys)
-	line.LineStyle.Color = c
-	line.LineStyle.Width = 1
-	line.LineStyle.Dashes = nil
-	line.LineStyle.DashOffs = 0
-	return line
-}
-
-func toSpecPlotLine(data []float64, fs int, c color.Color) *plotter.Line {
-	data = data[1:]
-	xys := make(plotter.XYs, len(data))
-	xr := (float64(fs) / 2) / float64(len(data))
-	for i, v := range data {
-		xys[i].X = float64(i+1) * xr
-		xys[i].Y = -1e100
-		if 0 < v {
-			xys[i].Y = 20 * math.Log10(v)
-		}
-	}
-	line, _ := plotter.NewLine(xys)
-	line.LineStyle.Color = c
-	line.LineStyle.Width = 1
-	line.LineStyle.Dashes = nil
-	line.LineStyle.DashOffs = 0
-	return line
-}
-
-func toImage(plots [][]*plot.Plot) (image.Image, error) {
-	w := vg.Length(analyzerVidOpts.Width) * vg.Inch / 96
-	h := vg.Length(analyzerVidOpts.Height) * vg.Inch / 96
-	img := vgimg.New(w, h)
-	dc := draw.New(img)
-
-	rows := len(plots)
-	cols := len(plots[0])
-	pad := h / 20
-	tiles := draw.Tiles{
-		Rows:      rows,
-		Cols:      cols,
-		PadTop:    pad,
-		PadBottom: pad,
-		PadRight:  pad,
-		PadLeft:   pad,
-		PadX:      pad,
-		PadY:      pad,
-	}
-
-	canvases := plot.Align(plots, tiles, dc)
-	for i := 0; i < rows; i++ {
-		for j := 0; j < cols; j++ {
-			if plots[i][j] != nil {
-				plots[i][j].Draw(canvases[i][j])
-			}
-		}
-	}
-
-	tiff := vgimg.TiffCanvas{Canvas: img}
-	buf := bytes.NewBuffer(nil)
-	if _, err := tiff.WriteTo(buf); err != nil {
-		return nil, err
-	}
-	result, _, err := image.Decode(buf)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
 
 func cmplxAbs(data []complex128) []float64 {
 	result := make([]float64, len(data))
@@ -125,63 +40,99 @@ func cmplxAbs(data []complex128) []float64 {
 	return result
 }
 
-var analyzerFrameCounter = 0
-var analyzerFrameOnce sync.Once
+var (
+	analyzerInputFrameTime  = .0
+	analyzerInputSpentTime  = .0
+	analyzerOutputFrameTime = .0
+	analyzerOutputSpentTime = .0
+)
+
+func analyzerStart(fs, fftStep int) {
+	targetFPS := float64(fs) / float64(fftStep)
+	analyzerInputFrameTime = 1.0 / targetFPS
+	analyzerOutputFrameTime = 1.0 / float64(analyzerVidOpts.FPS)
+	encoder := simplevid.NewImageEncoder(analyzerVidOpts, analyzerImageCh)
+	log.Printf("debug: video option: %#v", analyzerVidOpts)
+	go func() {
+		if err := encoder.EncodeToFile(analyzerFilename); err != nil {
+			panic(err)
+		}
+		close(analyzerWait)
+	}()
+}
 
 func analyzerFrame(data *analyzerData) {
-	analyzerFrameOnce.Do(func() {
-		analyzerVidOpts.FPS = int(float64(data.fs)/(float64(data.fftWidth)/2)/float64(analyzerSlowPlayRate) + .5)
-		encoder := simplevid.NewImageEncoder(analyzerVidOpts, analyzerImageCh)
-		log.Printf("debug: video option: %#v", analyzerVidOpts)
-		go func() {
-			if err := encoder.EncodeToFile(analyzerFilename); err != nil {
-				panic(err)
-			}
-			close(analyzerWait)
-		}()
-	})
-	if 0 < analyzerFrameLimit && analyzerFrameLimit <= analyzerFrameCounter {
+	if 0 < analyzerTimeLimit && analyzerTimeLimit <= analyzerInputSpentTime {
+		// 分析済みの時間が analyzerTimeLimit に達したら打ち切り
 		return
 	}
-	log.Printf("debug: FFT process frame %d", analyzerFrameCounter)
+	defer func() {
+		analyzerInputSpentTime += analyzerInputFrameTime
+	}()
 
-	pt, err := plot.New()
-	if err != nil {
-		panic(err)
+	if analyzerInputSpentTime/analyzerPlayRate < analyzerOutputSpentTime {
+		// 出力ビデオのFPSよりも分析速度が速いため、このフレームはスキップ
+		log.Printf("debug: analyzer time %4.3f => %4.3f (skipped)", analyzerInputSpentTime, analyzerOutputSpentTime*analyzerPlayRate)
+		return
 	}
+
+	// グラフを作成
+	var (
+		colorOrange = color.RGBA{R: 255, G: 112, B: 0, A: 255}
+		colorBlue   = color.RGBA{R: 0, G: 192, B: 255, A: 255}
+		colorRed    = color.RGBA{R: 255, G: 0, B: 0, A: 255}
+	)
+
+	pt := newPlot()
 	wave1 := fourier.NewFFT((len(data.spec1)-1)*2).Sequence(nil, data.spec1)
-	pt.Add(toTimePlotLine(wave1, data.fs, color.RGBA{R: 0, G: 192, B: 255, A: 255}))
-	pt.Add(toTimePlotLine(data.wave0, data.fs, color.RGBA{R: 255, G: 112, B: 0, A: 255}))
+	plotAddTimeSeries(pt, []plotSeries{
+		{legend: "Input", data: data.wave0, fs: data.fs, color: colorOrange},
+		{legend: "Output", data: wave1, fs: data.fs, color: colorBlue},
+	})
 	pt.Title.Text = "Time Domain"
-	pt.X.Label.Text = "Time [s]"
+	pt.X.Label.Text = fmt.Sprintf("Time [s] (at %4.3f)", analyzerInputSpentTime)
+	pt.X.Min = 0
+	pt.X.Max = float64(len(wave1)) / float64(data.fs)
 	pt.Y.Label.Text = "Amplitude"
 	pt.Y.Min = -1
 	pt.Y.Max = 1
 
-	pf, err := plot.New()
-	if err != nil {
-		panic(err)
-	}
-	pf.Add(toSpecPlotLine(cmplxAbs(data.spec1), data.fs, color.RGBA{R: 0, G: 192, B: 255, A: 255}))
-	pf.Add(toSpecPlotLine(cmplxAbs(data.spec0), data.fs, color.RGBA{R: 255, G: 112, B: 0, A: 255}))
-	pf.Add(toSpecPlotLine(data.envelope, data.fs, color.RGBA{R: 255, G: 0, B: 0, A: 255}))
+	pf := newPlot()
+	plotAddSpecSeries(pf, []plotSeries{
+		{legend: "Input", data: cmplxAbs(data.spec0), fs: data.fs, color: colorOrange},
+		{legend: "Envelope", data: data.envelope, fs: data.fs, color: colorRed},
+		{legend: "Output", data: cmplxAbs(data.spec1), fs: data.fs, color: colorBlue},
+	})
 	pf.Title.Text = "Frequency Domain"
 	// pf.X.Scale = plot.LogScale{}
 	// pf.X.Tick.Marker = plot.LogTicks{}
 	pf.X.Label.Text = "Frequency [Hz]"
+	pf.X.Min = 0
+	pf.X.Max = float64(data.fs) / 2
 	pf.Y.Label.Text = "Amplitude [dB]"
 	pf.Y.Min = -100
 	pf.Y.Max = 0
 
-	img, err := toImage([][]*plot.Plot{
-		{pt},
-		{pf},
-	})
+	img, err := plotToImage(
+		analyzerVidOpts.Width,
+		analyzerVidOpts.Height,
+		[][]*plot.Plot{
+			{pt},
+			{pf},
+		},
+	)
 	if err != nil {
 		panic(err)
 	}
-	analyzerImageCh <- img
-	analyzerFrameCounter++
+
+	// ビデオ出力
+	repeated := ""
+	for analyzerOutputSpentTime <= analyzerInputSpentTime/analyzerPlayRate {
+		log.Printf("debug: analyzer time %4.3f => %4.3f%s", analyzerInputSpentTime, analyzerOutputSpentTime*analyzerPlayRate, repeated)
+		analyzerImageCh <- img
+		analyzerOutputSpentTime += analyzerOutputFrameTime
+		repeated = " (repeated)"
+	}
 }
 
 func analyzerFinish() {

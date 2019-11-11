@@ -35,6 +35,7 @@ func NewCepstralShifter(input *buffer.WaveSource, fs, width int, shift float64) 
 		ceps:       make([]float64, width),
 		spec1:      make([]complex128, width/2+1),
 	}
+	analyzerStart(fs, width/2)
 	s.Processor = fft.NewProcessor(input, width, func(spec0 []complex128, wave0 []float64) []complex128 {
 		if len(spec0) <= 4 {
 			return spec0
