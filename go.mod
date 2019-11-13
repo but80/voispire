@@ -3,6 +3,7 @@ module github.com/but80/voispire
 go 1.12
 
 require (
+	github.com/but80/go-dio v1.0.0
 	github.com/but80/simplevid-go v0.3.0
 	github.com/comail/colog v0.0.0-20160416085026-fba8e7b1f46c
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -20,6 +21,7 @@ require (
 	github.com/stretchr/testify v1.2.2
 	github.com/urfave/cli v1.20.0
 	github.com/xlab/closer v0.0.0-20161113214103-89cd22812c4f
+	github.com/zenwerk/go-wave v0.0.0-20190102022600-1be84bfef50c // indirect
 	golang.org/x/exp v0.0.0-20190306152737-a1d7652674e8 // indirect
 	golang.org/x/image v0.0.0-20190227222117-0694c2d4d067 // indirect
 	golang.org/x/text v0.3.0

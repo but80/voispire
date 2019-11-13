@@ -5,10 +5,10 @@ import (
 	"math"
 	"time"
 
+	"github.com/but80/go-dio"
 	"github.com/but80/voispire/internal/buffer"
 	"github.com/but80/voispire/internal/formant"
 	"github.com/but80/voispire/internal/wav"
-	"github.com/but80/voispire/internal/world"
 	"github.com/gordonklaus/portaudio"
 	"github.com/xlab/closer"
 	"golang.org/x/xerrors"
@@ -52,7 +52,12 @@ func start(o Options) error {
 		}
 		log.Printf("debug: IN: %d samples, fs=%d", len(src), fs)
 
-		f0, _ = world.Harvest(src, fs, o.FramePeriodMsec, f0Floor, f0Ceil)
+		opt := dio.NewOption()
+		opt.FramePeriod = o.FramePeriodMsec
+		opt.F0Floor = f0Floor
+		opt.F0Ceil = f0Ceil
+		e := dio.New(src, float64(fs), opt)
+		f0, _ = e.Estimate()
 	}
 
 	// 入力ファイルのみ指定時

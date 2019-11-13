@@ -1,0 +1,13 @@
+root = true
+
+[*]
+indent_style = space
+indent_size = 4
+
+[*.{go,c,cpp,h}]
+indent_style = tab
+indent_size = 4
+
+[*.{yml,md,sh}]
+indent_style = space
+indent_size = 2

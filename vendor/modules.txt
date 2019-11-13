@@ -1,5 +1,10 @@
 # github.com/ajstarks/svgo v0.0.0-20180226025133-644b8db467af
 github.com/ajstarks/svgo
+# github.com/but80/go-dio v1.0.0
+github.com/but80/go-dio
+github.com/but80/go-dio/constant
+github.com/but80/go-dio/internal/common
+github.com/but80/go-dio/internal/matlab
 # github.com/but80/simplevid-go v0.3.0
 github.com/but80/simplevid-go
 # github.com/comail/colog v0.0.0-20160416085026-fba8e7b1f46c
