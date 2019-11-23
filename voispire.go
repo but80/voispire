@@ -42,7 +42,8 @@ func Start(o Options) error {
 }
 
 func start(o Options) error {
-	var f0 []float64
+	var f0Input chan<- []float64
+	var f0Output <-chan []float64
 	if o.Transpose != 0 {
 		log.Print("info: 基本周波数を推定中...")
 
@@ -56,8 +57,9 @@ func start(o Options) error {
 		opt.FramePeriod = o.FramePeriodMsec
 		opt.F0Floor = f0Floor
 		opt.F0Ceil = f0Ceil
-		e := dio.New(src, float64(fs), opt)
-		f0, _ = e.Estimate()
+		session := dio.NewSession(float64(fs), opt)
+		f0Input, f0Output = session.Start()
+		f0Input <- src
 	}
 
 	// 入力ファイルのみ指定時
@@ -121,7 +123,7 @@ func start(o Options) error {
 		lastmod = mod1
 	} else {
 		log.Print("info: フォルマントシフタとストレッチャを使用します")
-		mod2 = newF0Splitter(f0, float64(fs), o.FramePeriodMsec)
+		mod2 = newF0Splitter(f0Output, float64(fs), o.FramePeriodMsec)
 		mod3 = newStretcher(pitchCoef, 1.0, float64(fsOut)/float64(fs))
 		mod2.input = mod1.Output()
 		mod3.input = mod2.output

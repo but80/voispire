@@ -99,7 +99,7 @@ func isNewer(this, that string) bool {
 
 // サブモジュールのチェックアウト
 func Submodules() error {
-	if exists("cmodules/world/makefile") && exists("cmodules/portaudio/libportaudio64bit.dll") {
+	if exists("cmodules/portaudio/libportaudio64bit.dll") {
 		return nil
 	}
 	if err := sh.RunV("git", "submodule", "init"); err != nil {
@@ -111,24 +111,8 @@ func Submodules() error {
 	return nil
 }
 
-func BuildWorld() error {
-	mg.SerialDeps(Submodules)
-	if isNewer("cmodules/world/build/libworld.a", "cmodules/world/libsent/include/sent/speech.h") {
-		fmt.Println("libworld.a は最新です")
-		return nil
-	}
-	fmt.Println("world をビルド中...")
-	if err := pushDir("cmodules/world"); err != nil {
-		return err
-	}
-	defer popDir()
-	_ = sh.RunV("make")
-	return nil
-}
-
 // Build program
 func Build() error {
-	mg.SerialDeps(BuildWorld)
 	v, err := sh.Output("git", "describe", "--tags")
 	if err != nil {
 		v = "unknown"
