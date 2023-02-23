@@ -22,7 +22,7 @@ require (
 	github.com/xlab/closer v0.0.0-20161113214103-89cd22812c4f
 	golang.org/x/exp v0.0.0-20190306152737-a1d7652674e8 // indirect
 	golang.org/x/image v0.0.0-20190227222117-0694c2d4d067 // indirect
-	golang.org/x/text v0.3.0
+	golang.org/x/text v0.3.8
 	golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898
 	gonum.org/v1/gonum v0.0.0-20191009222026-5d5638e6749a
 	gonum.org/v1/plot v0.0.0-20190515093506-e2840ee46a6b
